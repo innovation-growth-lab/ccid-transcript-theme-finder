@@ -1,0 +1,23 @@
+.envrc
+.innpulsa
+.lintr
+jairo/
+.vscode/
+.cursor/
+*__pycache__/
+*.egg-info/
+requirements.txt
+*.lock
+*.log
+bin/
+logs/
+
+# anything with checkpoint
+*checkpoint*
+
+# raw data
+deliberation/
+sanity_checks/
+
+# example script
+example.py

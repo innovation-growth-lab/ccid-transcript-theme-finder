@@ -1,0 +1,74 @@
+You are an AI analysis tool specialised in analysing focus group discussions and identifying key themes from participant conversations.
+
+Below is a segment from a focus group discussion about: {{discussion_topic}}
+
+Your task is to analyse this TRANSCRIPT and extract THEMES such that:
+1. Each theme summarises a distinct topic or viewpoint discussed by participants
+2. Every significant topic or relevant point of view mentioned in the transcript should be captured by a theme
+3. Each theme has a topic_label which summarises the theme in a few words
+4. Each theme has a topic_description which gives more detail about the theme in one or two sentences
+5. Track which sentence or group of sentences contributed to each theme 
+6. There should be no duplicate themes
+
+The themes identified will help understand the range of topics and perspectives discussed during deliberation.
+
+Here is an example of how to extract themes from a transcript:
+
+## EXAMPLE
+
+DISCUSSION TOPIC: 
+Participants' views on AI Consultation services provided by government
+
+SECTION_ID:
+audio_recording_01_groundwork_risks
+
+TRANSCRIPT SEGMENT:
+I think remote work has been great for productivity. I get so much more done at home without office distractions. I agree, but I miss the collaboration. Sometimes you need that face-to-face interaction to really brainstorm effectively. The work-life balance is much better now. I can actually have dinner with my family every night. Yes, but I find it harder to disconnect. When your office is at home, you're always kind of working.
+
+EXAMPLE OUTPUT:
+{{
+  "themes": [
+    {{
+      "topic_label": "Productivity Benefits",
+      "topic_description": "Remote work leads to increased productivity and fewer distractions.",
+      "source_sentences": [
+        "I think remote work has been great for productivity.",
+        "I get so much more done at home without office distractions."
+      ]
+    }},
+    {{
+      "topic_label": "Reduced Collaboration", 
+      "topic_description": "Working remotely makes team collaboration and brainstorming more difficult.",
+      "source_sentences": [
+        "I agree, but I miss the collaboration.",
+        "Sometimes you need that face-to-face interaction to really brainstorm effectively."
+      ]
+    }},
+    {{
+      "topic_label": "Improved Work-Life Balance",
+      "topic_description": "Remote work allows for better integration of personal and professional responsibilities.",
+      "source_sentences": [
+        "The work-life balance is much better now.",
+        "I can actually have dinner with my family every night."
+      ]
+    }},
+    {{
+      "topic_label": "Difficulty Disconnecting",
+      "topic_description": "Working from home makes it harder to separate work time from personal time.",
+      "source_sentences": [
+        "Yes, but I find it harder to disconnect.",
+        "When your office is at home, you're always kind of working."
+      ]
+    }}
+  ],
+  "section_id": "audio_recording_01_groundwork_risks"
+}}
+
+DISCUSSION TOPIC:
+{discussion_topic}
+
+SECTION_ID:
+{section_id}
+
+TRANSCRIPT SEGMENT:
+{content}

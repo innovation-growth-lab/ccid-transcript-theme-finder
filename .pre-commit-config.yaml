@@ -1,0 +1,23 @@
+repos:
+-   repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
+    rev: v0.8.0
+    hooks:
+    -   id: pre-commit-update
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4
+    hooks:
+    -   id: ruff-check
+    -   id: ruff-format
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-merge-conflict
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+    -   id: check-toml
+    -   id: check-yaml
+        exclude: "docs/mkdocs.yml"
+    -   id: no-commit-to-branch
+        args: ["-b", dev, "-b", master, "-b", main]
+        pass_filenames: false

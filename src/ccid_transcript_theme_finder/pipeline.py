@@ -1,0 +1,140 @@
+"""Core pipeline for focus group session analysis using native Gemini APIs.
+
+This module provides the main analysis pipeline that orchestrates the entire
+theme finding process.
+"""
+
+import logging
+from typing import Any
+
+from .models import (
+    TextSection,
+    TranscriptSession,
+)
+from .nodes.gemini_processor import GeminiProcessor
+from .nodes.sentence_mapper import SentenceMapper
+from .nodes.session_processor import SessionProcessor
+from .nodes.themes import theme_condensation, theme_generation, theme_refinement
+
+logger = logging.getLogger(__name__)
+
+
+async def analyse_deliberation_session(
+    session_path: str,
+    model_name: str = "gemini-2.5-flash",  # "gemini-2.5-flash-lite",
+    condensation_batch_size: int = 10,
+    concurrency: int = 4,
+    max_condensation_iterations: int = 4,
+    remove_facilitator_content: bool = False,
+) -> dict[str, Any]:
+    """Analyse a transcript session from a folder of JSON files to identify and map themes using Gemini API calls.
+
+    This is the main pipeline function that processes a folder of transcript sessions through
+    multiple stages: session processing, theme generation, iterative condensation,
+    refinement, and text section mapping.
+
+    Args:
+        session_path: Path to folder containing JSON files with transcript data for deliberation sections
+        model_name: Gemini model to use (default: "gemini-2.5-flash-lite")
+        condensation_batch_size: Batch size for theme condensation (default: 10)
+        refinement_batch_size: Batch size for theme refinement (default: 20)
+        mapping_batch_size: Batch size for text section mapping (default: 10)
+        concurrency: Number of concurrent API calls (default: 4)
+        max_condensation_iterations: Maximum number of condensation iterations (default: 4)
+        remove_facilitator_content: Whether to remove facilitator content (default: False)
+
+    Returns:
+        dict: Results from each pipeline stage, structured as:
+            {
+                "session": TranscriptSession,
+                "text_sections": list[TextSection],
+                "initial_themes": list[dict],
+                "condensed_themes": list[dict],
+                "refined_themes": list[dict],
+                "sentence_theme_mapping": list[dict],
+            }
+
+    """
+    logger.info("Starting focus group session analysis with native Gemini")
+
+    # init the gemini and session processor
+    processor = GeminiProcessor(model_name=model_name)
+    session_processor = SessionProcessor(processor=processor if remove_facilitator_content else None)
+
+    # stage 1: process the session folder
+    logger.info("Stage 1: Processing session folder from JSON files")
+    session, text_sections = await session_processor.process_session_folder(session_path)
+
+    if not text_sections:
+        logger.error("No text sections created from session folder")
+        return _create_empty_results(session, [])
+
+    logger.info(f"Created {len(text_sections)} text sections from session folder {session.session_id}")
+
+    # stage 2: Generate initial themes from text sections
+    logger.info("Stage 2: Generating themes from text sections")
+    initial_themes = await theme_generation(
+        text_sections=text_sections,
+        processor=processor,
+        discussion_topic=session.topic,
+        concurrency=concurrency,
+    )
+
+    logger.info(f"Generated {len(initial_themes)} initial themes")
+
+    # stage 3: Iteratively condense themes
+    logger.info("Stage 3: Condensing themes iteratively")
+    condensed_themes = await theme_condensation(
+        themes=initial_themes,
+        processor=processor,
+        discussion_topic=session.topic,
+        batch_size=condensation_batch_size,
+        concurrency=concurrency,
+        max_condensation_iterations=max_condensation_iterations,
+    )
+
+    logger.info(f"Condensed to {len(condensed_themes)} themes")
+
+    # stage 4: Refine themes
+    logger.info("Stage 4: Refining themes")
+    refined_themes = await theme_refinement(
+        condensed_themes=condensed_themes,
+        processor=processor,
+        discussion_topic=session.topic,
+        concurrency=concurrency,
+    )
+
+    logger.info(f"Refined to {len(refined_themes)} final themes")
+
+    # stage 5: Create sentence-level theme mapping
+    logger.info("Stage 5: Creating sentence-level theme mapping")
+    sentence_mapper = SentenceMapper()
+    sentence_mapping = sentence_mapper.create_sentence_theme_mapping(
+        text_sections=text_sections,
+        initial_themes=initial_themes,
+        condensed_themes=condensed_themes,
+        refined_themes=refined_themes,
+    )
+
+    logger.info("Deliberation session analysis complete")
+
+    return {
+        "session": session,
+        "text_sections": text_sections,
+        "initial_themes": initial_themes,
+        "condensed_themes": condensed_themes,
+        "refined_themes": refined_themes,
+        "sentence_theme_mapping": sentence_mapping,
+    }
+
+
+def _create_empty_results(session: TranscriptSession, text_sections: list[TextSection]) -> dict[str, Any]:
+    """Create empty results structure when analysis fails."""
+    return {
+        "session": session,
+        "text_sections": text_sections,
+        "initial_themes": [],
+        "condensed_themes": [],
+        "refined_themes": [],
+        "sentence_theme_mapping": [],
+    }

@@ -1,0 +1,76 @@
+[build-system]
+requires = [ "setuptools",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccid_transcript_theme_finder"
+version = "0.1.0"
+readme = "README.md"
+description = ""
+requires-python = ">=3.13"
+dependencies = [
+    "ipykernel",
+    "pandas",
+    "numpy",
+    "pydantic",
+    "google-genai",
+]
+
+[project.scripts]
+project-name = "ccid_transcript_theme_finder.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["project-name*"]
+namespaces = false
+
+[tool.kedro]
+package_name = "ccid_transcript_theme_finder"
+project_name = "project-name"
+kedro_init_version = "0.19.14"
+tools = "['Custom Logging']"
+example_pipeline = "False"
+source_dir = "src"
+
+[tool.basedpyright]
+typeCheckingMode = "basic"
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".venv"]
+reportImplicitStringConcatenation = false
+reportMissingImports = false
+reportArgumentType = false
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+preview = true
+
+[tool.ruff.lint]
+select = [
+    "ANN", # flake8-annotations
+    "B",   # flake8-bugbear: Likely bugs
+    "C",   # flake8-comprehensions and mccabe complexity
+    "D",   # pydocstyle: Docstring conventions
+    "E",   # pycodestyle: Errors (default)
+    "F",   # pyflakes: Linter
+    "I",   # isort
+    "N",   # pep8-naming: Naming conventions
+    "W",   # pycodestyle: Warnings (default)
+]
+ignore = [
+    "D100",   # Warns about missing module-level docstrings
+    "S101",   # Warns about assert being removed when compiled
+    "ANN401", # Forces non-dynamic hints in main() functions
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402", "D104"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["project-name"]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
