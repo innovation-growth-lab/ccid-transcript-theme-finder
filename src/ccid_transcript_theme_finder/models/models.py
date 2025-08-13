@@ -8,18 +8,18 @@ from pydantic import BaseModel, Field, model_validator
 class TranscriptSession(BaseModel):
     """Model for a transcript session/topic."""
 
-    session_id: str = Field(..., description="unique identifier for this session")
+    session_id: str | None = Field(None, description="unique identifier for this session")
     content: str = Field(..., description="the full transcript content for this session")
-    topic: str = Field(..., description="topic or theme of this session")
+    system_info: str = Field(..., description="system context for this session")
 
 
 class TextSection(BaseModel):
     """Model for a section of text within a transcript."""
 
     section_id: str = Field(..., description="Unique identifier for this text section")
+    session_id: str | None = Field(None, description="Which session this section belongs to")
+    system_info: str = Field(..., description="System context for this section")
     content: str = Field(..., description="The text content of this section")
-    session_id: str = Field(..., description="Which session this section belongs to")
-    section_index: int = Field(..., ge=0, description="Sequential index of this section")
 
 
 class Theme(BaseModel):

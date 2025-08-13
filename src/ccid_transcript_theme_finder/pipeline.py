@@ -13,19 +13,20 @@ from .models import (
 )
 from .nodes.gemini_processor import GeminiProcessor
 from .nodes.sentence_mapper import SentenceMapper
-from .nodes.session_processor import SessionProcessor
+from .nodes.session_processor import DeliberationProcessor
 from .nodes.themes import theme_condensation, theme_generation, theme_refinement
 
 logger = logging.getLogger(__name__)
 
 
 async def analyse_deliberation_session(
-    session_path: str,
+    data_path: str,
     model_name: str = "gemini-2.5-flash",  # "gemini-2.5-flash-lite",
     condensation_batch_size: int = 10,
     concurrency: int = 4,
     max_condensation_iterations: int = 4,
     remove_facilitator_content: bool = False,
+    target_section: str | None = None,
 ) -> dict[str, Any]:
     """Analyse a transcript session from a folder of JSON files to identify and map themes using Gemini API calls.
 
@@ -33,8 +34,13 @@ async def analyse_deliberation_session(
     multiple stages: session processing, theme generation, iterative condensation,
     refinement, and text section mapping.
 
+    Two processing modes are supported:
+    1. Session mode: Process all sections within a single deliberation session
+    2. Cross-session mode: Process a specific section across all deliberation sessions on a given date
+
     Args:
-        session_path: Path to folder containing JSON files with transcript data for deliberation sections
+        data_path: Path to folder containing JSON files with transcript data for deliberation sections
+                   OR path to root folder containing date folders when using cross-session mode
         model_name: Gemini model to use (default: "gemini-2.5-flash-lite")
         condensation_batch_size: Batch size for theme condensation (default: 10)
         refinement_batch_size: Batch size for theme refinement (default: 20)
@@ -42,6 +48,8 @@ async def analyse_deliberation_session(
         concurrency: Number of concurrent API calls (default: 4)
         max_condensation_iterations: Maximum number of condensation iterations (default: 4)
         remove_facilitator_content: Whether to remove facilitator content (default: False)
+        target_section: Specific section to analyze across sessions (e.g., "groundwork-intro").
+                       If provided, enables cross-session mode. If None, uses session mode.
 
     Returns:
         dict: Results from each pipeline stage, structured as:
@@ -59,15 +67,17 @@ async def analyse_deliberation_session(
 
     # init the gemini and session processor
     processor = GeminiProcessor(model_name=model_name)
-    session_processor = SessionProcessor(processor=processor if remove_facilitator_content else None)
+    session_processor = DeliberationProcessor(processor=processor if remove_facilitator_content else None)
 
-    # stage 1: process the session folder
-    logger.info("Stage 1: Processing session folder from JSON files")
-    session, text_sections = await session_processor.process_session_folder(session_path)
-
-    if not text_sections:
-        logger.error("No text sections created from session folder")
-        return _create_empty_results(session, [])
+    # stage 1: process the session folder or specific section across sessions
+    if target_section:
+        logger.info(f"Stage 1: Processing {target_section} across sessions in root folder")
+        session, text_sections = await session_processor.process_specific_section_across_sessions(
+            data_path, target_section
+        )
+    else:
+        logger.info("Stage 1: Processing session folder from JSON files")
+        session, text_sections = await session_processor.process_session_folder(data_path)
 
     logger.info(f"Created {len(text_sections)} text sections from session folder {session.session_id}")
 
@@ -76,7 +86,7 @@ async def analyse_deliberation_session(
     initial_themes = await theme_generation(
         text_sections=text_sections,
         processor=processor,
-        discussion_topic=session.topic,
+        discussion_topic=session.system_info,
         concurrency=concurrency,
     )
 
@@ -87,7 +97,7 @@ async def analyse_deliberation_session(
     condensed_themes = await theme_condensation(
         themes=initial_themes,
         processor=processor,
-        discussion_topic=session.topic,
+        discussion_topic=session.system_info,
         batch_size=condensation_batch_size,
         concurrency=concurrency,
         max_condensation_iterations=max_condensation_iterations,
@@ -100,7 +110,7 @@ async def analyse_deliberation_session(
     refined_themes = await theme_refinement(
         condensed_themes=condensed_themes,
         processor=processor,
-        discussion_topic=session.topic,
+        discussion_topic=session.system_info,
         concurrency=concurrency,
     )
 

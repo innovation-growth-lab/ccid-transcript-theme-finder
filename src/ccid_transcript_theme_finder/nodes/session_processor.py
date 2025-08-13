@@ -16,8 +16,8 @@ from .gemini_processor import GeminiProcessor, process_items_with_gemini
 logger = logging.getLogger(__name__)
 
 
-class SessionProcessor:
-    """Processor for transcript sessions from JSON files."""
+class DeliberationProcessor:
+    """Processor for transcript deliberations from JSON files."""
 
     def __init__(self, processor: GeminiProcessor | None = None) -> None:
         """Init the session processor.
@@ -48,14 +48,19 @@ class SessionProcessor:
         parts = filename.split("_")
         if len(parts) > 1:
             last_part = parts[-1]
+
             # remove any trailing numbers or extensions
             phase = re.sub(r"-\d+$", "", last_part)
+
+            # check transcription- or audio-recording- prefix
+            phase = phase.removeprefix("transcription-").removeprefix("audio-recording-")
+
             return phase
 
         # final fallback: use the filename
         return filename
 
-    def _extract_system_context(self, filename: str) -> str:
+    def _extract_system_info(self, filename: str) -> str:
         """Extract system context from filename.
 
         Args:
@@ -88,14 +93,15 @@ class SessionProcessor:
         else:
             return "Unknown System - Public AI Task Force Context"
 
-    def _load_transcript_from_json(self, json_path: str | Path) -> TranscriptSession:
+    def _load_transcript_from_json(self, json_path: str | Path, session_id: str | None = None) -> TextSection:
         """Load a transcript session from a JSON file.
 
         Args:
             json_path: Path to the JSON file containing transcript data
+            session_id: Optional session id to use for the text section
 
         Returns:
-            TranscriptSession: the session data
+            TextSection: the section data
 
         """
         json_path = Path(json_path)
@@ -119,24 +125,24 @@ class SessionProcessor:
         deliberation_phase = self._extract_deliberation_phase(filename)
 
         # extract system context (System 1 or System 2)
-        system_context = self._extract_system_context(filename)
+        system_info = self._extract_system_info(filename)
 
         # create session id from deliberation phase
-        session_id = deliberation_phase.replace("-", "_")
+        section_id = deliberation_phase.replace("-", "_")
 
-        # create topic from system context
-        topic = system_context
+        return TextSection(section_id=section_id, content=transcript, session_id=session_id, system_info=system_info)
 
-        return TranscriptSession(session_id=session_id, content=transcript, topic=topic)
-
-    def _load_transcripts_from_folder(self, folder_path: str | Path) -> List[TranscriptSession]:
+    def _load_transcripts_from_folder(
+        self, folder_path: str | Path, session_id: str | None = None
+    ) -> List[TextSection]:
         """Load multiple transcript sessions from a folder of JSON files.
 
         Args:
             folder_path: Path to the folder containing JSON files
+            session_id: Optional session id to use for the text section
 
         Returns:
-            list[TranscriptSession]: one per JSON file
+            list[TextSection]: one per JSON file
 
         """
         folder_path = Path(folder_path)
@@ -153,82 +159,52 @@ class SessionProcessor:
         logger.info(f"Found {len(json_files)} JSON files in {folder_path}")
 
         # load each JSON file as a separate session
-        sessions = []
+        sections = []
         for json_file in sorted(json_files):  # sort for consistent ordering
             try:
-                session = self._load_transcript_from_json(json_file)
-                sessions.append(session)
-                logger.info(f"Loaded session from {json_file.name}: {session.session_id}")
+                section = self._load_transcript_from_json(json_file, session_id)
+                sections.append(section)
+                logger.info(f"Loaded session from {json_file.name}: {section.session_id}")
             except Exception as e:
                 logger.error(f"Failed to load {json_file.name}: {e}")
                 continue
 
-        if not sessions:
-            raise ValueError(f"No valid sessions loaded from folder: {folder_path}")
+        if not sections:
+            raise ValueError(f"No valid sections loaded from folder: {folder_path}")
 
-        logger.info(f"Successfully loaded {len(sessions)} sessions from folder")
-        return sessions
+        logger.info(f"Successfully loaded {len(sections)} sections from folder")
+        return sections
 
-    def _create_text_sections_from_sessions(self, sessions: List[TranscriptSession]) -> List[TextSection]:
-        """Create text sections from multiple transcript sessions.
-
-        Each session (JSON file) becomes a separate text section for analysis.
-
-        Args:
-            sessions: List of TranscriptSession objects to process
-
-        Returns:
-            list[TextSection]: a list of deliberation phase transcript sections
-
-        """
-        text_sections = []
-
-        for index, session in enumerate(sessions):
-            # create a section for each deliberation phase/session
-            section = TextSection(
-                section_id=session.session_id,
-                content=session.content,
-                session_id=session.session_id,
-                section_index=index,
-            )
-            text_sections.append(section)
-            logger.info(f"Created text section {index}: {session.session_id}")
-
-        logger.info(f"Created {len(text_sections)} text sections from {len(sessions)} sessions")
-        return text_sections
-
-    def _create_combined_session(self, sessions: List[TranscriptSession]) -> TranscriptSession:
+    def _create_transcript_session(
+        self, sections: List[TextSection], system_info: str, session_id: str | None = None
+    ) -> TranscriptSession:
         """Create a combined session from multiple transcript sessions.
 
         This creates a single session that represents the entire deliberation
         by combining all the individual session contents.
 
         Args:
-            sessions: List of TranscriptSession objects to combine
+            sections: List of TextSection objects to combine
+            system_info: System context for the combined session (1 or 2)
+            session_id: Optional session id to use for the transcript session
 
         Returns:
             TranscriptSession: the combined data across deliberation phases
 
         """
-        if not sessions:
-            raise ValueError("No sessions provided for combination")
-
-        # use the first session's metadata as the base for the combined session
-        base_session = sessions[0]
+        if not sections:
+            raise ValueError("No sections provided for combination")
 
         # combine all transcript contents into a single string
-        combined_content = "\n\n".join([session.content for session in sessions])
+        combined_content = "\n\n".join([section.content for section in sections])
 
-        # use the topic from the first session for the combined session
-        topic = base_session.topic
-
-        logger.info(f"Created combined session with {len(sessions)} individual sessions")
-        return TranscriptSession(session_id="combined sessions", content=combined_content, topic=topic)
+        logger.info(f"Created combined session with {len(sections)} individual sections")
+        return TranscriptSession(session_id=session_id, content=combined_content, system_info=system_info)
 
     async def _remove_facilitator_content(
         self,
-        transcript_sections: list[TranscriptSession],
-    ) -> list[TranscriptSession]:
+        transcript_sections: list[TextSection],
+    ) -> list[TextSection]:
         """Remove facilitator content from transcript while preserving participant discussions.
 
         Args:
@@ -240,8 +216,8 @@ class SessionProcessor:
         """
         logger.info("Processing transcript for facilitator content removal")
 
-        # assume topic is the same for all sections
-        discussion_topic = transcript_sections[0].topic
+        # assume (not safe!) topic is the same for all sections  # david: need to fix this
+        system_info = transcript_sections[0].system_info
 
         # format transcript sections as items for the prompt template
         items = []
@@ -254,7 +230,7 @@ class SessionProcessor:
             prompt_template_name="facilitator_removal",
             response_model=FacilitatorRemovalResponse,
             processor=self.processor,
-            discussion_topic=discussion_topic,
+            discussion_topic=system_info,
         )
 
         # replace the content of the transcript sections with the cleaned content
@@ -263,11 +239,159 @@ class SessionProcessor:
 
         return transcript_sections
 
-    async def process_session_folder(self, folder_path: str | Path) -> Tuple[TranscriptSession, List[TextSection]]:
+    def _extract_session_info_from_folder_name(self, folder_name: str) -> dict[str, str]:
+        """Extract session information from deliberation folder name.
+
+        Args:
+            folder_name: The folder name to parse (e.g., "090000_fli-system-1-expert_0196f390")
+
+        Returns:
+            dict containing time, system, and session_id
+
+        """
+        parts = folder_name.split("_")
+
+        if len(parts) >= 3:
+            time_str = parts[0]
+            system_info = parts[1]
+            session_id = parts[2]
+
+            return {"time": time_str, "system": system_info, "session_id": session_id}
+        else:
+            # fallback for malformed folder names (no such cases yet)
+            return {"time": "unknown", "system": "unknown", "session_id": folder_name}
+
+    def _find_date_folders(self, root_folder_path: Path) -> List[Path]:
+        """Find all date folders in the root folder.
+
+        Args:
+            root_folder_path: Path to the root folder
+
+        Returns:
+            list[Path]: List of date folder paths
+
+        """
+        date_folders = [f for f in root_folder_path.iterdir() if f.is_dir() and f.name.count("-") == 2]
+
+        if not date_folders:
+            raise ValueError(f"No date folders found in {root_folder_path}")
+
+        logger.info(f"Found {len(date_folders)} date folders in {root_folder_path}")
+        return date_folders
+
+    def _find_session_folders(self, date_folder: Path) -> List[Path]:
+        """Find all session folders within a date folder.
+
+        Args:
+            date_folder: Path to the date folder
+
+        Returns:
+            list[Path]: List of session folder paths
+
+        """
+        session_folders = [f for f in date_folder.iterdir() if f.is_dir()]
+
+        if not session_folders:
+            logger.warning(f"No session folders found in date folder {date_folder.name}")
+
+        return session_folders
+
+    def _find_section_file(self, session_folder: Path, target_section: str) -> Path | None:
+        """Find the specific section file within a session's deliberation folder.
+
+        Args:
+            session_folder: Path to the session folder
+            target_section: The target section to find
+
+        Returns:
+            Path | None: Path to the section file, or None if not found
+
+        """
+        deliberation_folder = session_folder / "deliberation"
+
+        if not deliberation_folder.exists():
+            logger.warning(f"No deliberation folder found in session {session_folder.name}")
+            return None
+
+        # look for files that contain the target section in their name
+        section_files = []
+        for file in deliberation_folder.glob("*.json"):
+            if target_section in file.name:
+                section_files.append(file)
+
+        if not section_files:
+            logger.warning(f"No {target_section} file found in deliberation folder {deliberation_folder}")
+            return None
+
+        if len(section_files) > 1:
+            logger.warning(
+                f"Multiple {target_section} files found in deliberation folder {deliberation_folder}, using first"
+            )
+
+        return section_files[0]
+
+    def _load_specific_section_across_sessions(
+        self, root_folder_path: str | Path, target_section: str
+    ) -> List[TextSection]:
+        """Load a specific section from all deliberation sessions across all dates.
+
+        Args:
+            root_folder_path: Path to the root folder containing date folders
+            target_section: The specific section to extract (e.g., "groundwork-intro")
+
+        Returns:
+            list[TextSection]: one per deliberation session containing the target section
+
+        """
+        root_folder_path = Path(root_folder_path)
+
+        if not root_folder_path.exists():
+            raise FileNotFoundError(f"Root folder not found: {root_folder_path}")
+
+        date_folders = self._find_date_folders(root_folder_path)
+        text_sections = []
+
+        for date_folder in sorted(date_folders):
+            logger.info(f"Processing date folder: {date_folder.name}")
+
+            session_folders = self._find_session_folders(date_folder)
+            if not session_folders:
+                continue
+
+            for session_folder in sorted(session_folders):
+                try:
+                    session_info = self._extract_session_info_from_folder_name(session_folder.name)
+                    section_file = self._find_section_file(session_folder, target_section)
+
+                    if section_file is None:
+                        continue
+
+                    text_section = self._load_transcript_from_json(section_file, session_id=session_info["session_id"])
+                    text_sections.append(text_section)
+                    logger.info(
+                        f"Loaded {target_section} from session {session_info['session_id']} in date {date_folder.name}"
+                    )
+
+                except Exception as e:
+                    logger.error(f"Failed to load {target_section} from session {session_folder.name}: {e}")
+                    continue
+
+        if not text_sections:
+            raise ValueError(f"No valid {target_section} sections found across all sessions in {root_folder_path}")
+
+        logger.info(
+            f"Successfully loaded {target_section} from {len(text_sections)} sessions across {len(date_folders)} dates"
+        )
+        return text_sections
+
+    async def process_session_folder(
+        self, folder_path: str | Path, session_id: str | None = None
+    ) -> Tuple[TranscriptSession, List[TextSection]]:
         """Process a folder of transcript sessions from JSON files.
 
         Args:
             folder_path: Path to the folder containing JSON files
+            session_id: Optional session id to use for the transcript session
 
         Returns:
             combined_session: TranscriptSession
@@ -282,20 +406,70 @@ class SessionProcessor:
         logger.info(f"Processing session folder: {folder_path}")
 
         # load all deliberation sections from the folder
-        deliberation_sections = self._load_transcripts_from_folder(folder_path)
+        text_sections = self._load_transcripts_from_folder(folder_path, session_id=session_id)
 
         # remove facilitator content if requested
         if self.processor:
             logger.info("Removing facilitator content from all sessions")
-            deliberation_sections = await self._remove_facilitator_content(deliberation_sections)
-
-        # create text sections (one per JSON file/session)
-        text_sections = self._create_text_sections_from_sessions(deliberation_sections)
+            text_sections = await self._remove_facilitator_content(text_sections)
 
         # create a combined session for overall analysis
-        combined_session = self._create_combined_session(deliberation_sections)
+        system_info = text_sections[0].system_info
+        combined_session = self._create_transcript_session(text_sections, system_info=system_info)
 
-        logger.info(
-            f"Processing complete: {len(text_sections)} sections created from {len(deliberation_sections)} files."
+        logger.info(f"Processing complete: {len(text_sections)} sections created from {len(text_sections)} files.")
+        return combined_session, text_sections
+
+    async def process_specific_section_across_sessions(
+        self, date_folder_path: str | Path, target_section: str
+    ) -> Tuple[TranscriptSession, List[TextSection]]:
+        """Process a specific section across all deliberation sessions on a given date.
+
+        Args:
+            date_folder_path: Path to the date folder (e.g., "2025-06-05")
+            target_section: The specific section to extract (e.g., "groundwork-intro")
+
+        Returns:
+            combined_session: TranscriptSession representing all sessions
+            text_sections: list[TextSection] one per deliberation session
+
+        Raises:
+            FileNotFoundError: If the date folder path does not exist
+            ValueError: If no deliberation session folders are found
+            ValueError: If no valid sections are found across sessions
+
+        """
+        logger.info(f"Processing {target_section} across sessions in date folder: {date_folder_path}")
+
+        # load the specific section from all deliberation sessions
+        text_sections = self._load_specific_section_across_sessions(date_folder_path, target_section)
+
+        # remove facilitator content if requested
+        if self.processor:
+            logger.info("Removing facilitator content from all sections")
+            # Convert TextSections back to TranscriptSessions for facilitator removal
+            transcript_sessions = [
+                TranscriptSession(
+                    session_id=section.session_id,
+                    content=section.content,
+                    system_info=section.system_info,
+                )
+                for section in text_sections
+            ]
+
+            cleaned_sessions = await self._remove_facilitator_content(transcript_sessions)
+
+            # update the text sections with cleaned content
+            for section, cleaned_session in zip(text_sections, cleaned_sessions, strict=True):
+                section.content = cleaned_session.content
+
+        # create a combined session for overall analysis
+        combined_content = "\n\n".join([section.content for section in text_sections])
+        combined_session = TranscriptSession(
+            session_id=f"combined_{target_section}_sessions",
+            content=combined_content,
+            system_info=text_sections[0].system_info,
         )
+
+        logger.info(f"Processing complete: {target_section} loaded from {len(text_sections)} sessions.")
         return combined_session, text_sections
