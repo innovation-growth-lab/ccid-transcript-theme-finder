@@ -204,9 +204,7 @@ def find_section_file(session_folder: Path, target_section: str) -> Path | None:
         return None
 
     if len(valid_files) > 1:
-        logger.warning(
-            f"Multiple non-empty {target_section} files found in deliberation folder {deliberation_folder}, using first: {valid_files[0].name}"
-        )
+        logger.warning(f"Multiple non-empty {target_section} files found, using first: {valid_files[0].name}")
 
     return valid_files[0]
 

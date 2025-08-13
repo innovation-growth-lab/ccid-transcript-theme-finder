@@ -15,7 +15,7 @@ Guidelines for Theme Analysis:
 - Consider the key ideas behind themes when merging, don't simply focus on the words used
 - Consolidation is encouraged, not mandated. If topics bring unique perspectives, preserve them.
 - When combining themes:
-  * Sum the source_session_count from all combined themes
+  * Sum the source_topic_count from all combined themes
   * Concatenate the source_sentences lists from all combined themes
   * Choose a representative label that captures the essence of the combined theme
   * Write a description that incorporates key insights from all constituent themes
@@ -23,7 +23,7 @@ Guidelines for Theme Analysis:
 For each theme in your output:
 1. Choose a clear, representative label that captures the essence of the combined or preserved theme
 2. Write a concise description that incorporates key insights from all constituent themes (single sentence)
-3. Include the sum of source_session_count from merged themes
+3. Include the sum of source_topic_count from merged themes
 4. Include all source_sentences from merged themes
 
 DISCUSSION TOPIC:

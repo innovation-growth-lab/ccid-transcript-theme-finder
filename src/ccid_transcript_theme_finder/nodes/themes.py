@@ -9,8 +9,8 @@ from ..models import (
     ThemeGenerationResponse,
     ThemeRefinementResponse,
 )
+from .deliberation_processor import TextSection
 from .gemini_processor import GeminiProcessor, process_items_with_gemini
-from .session_processor import TextSection
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,8 @@ async def theme_refinement(
     condensed_themes: list[dict[str, Any]],
     processor: GeminiProcessor,
     discussion_topic: str,
-    concurrency: int = 2,
+    batch_size: int,
+    concurrency: int,
 ) -> list[dict[str, Any]]:
     """Refine and standardise condensed themes into final format.
 
@@ -162,13 +163,16 @@ async def theme_refinement(
         condensed_themes: List of condensed themes
         processor: GeminiProcessor to use
         discussion_topic: Topic of the discussion
+        batch_size: Batch size for theme refinement
         concurrency: Number of concurrent API calls
 
     Returns:
         list[dict[str, Any]]: List of refined themes
 
     """
-    themes_to_refine = [{"themes": condensed_themes}]
+    themes_to_refine = [
+        {"themes": condensed_themes[i : i + batch_size]} for i in range(0, len(condensed_themes), batch_size)
+    ]
     logger.info(f"Refining {len(condensed_themes)} condensed themes")
 
     # process themes through refinement
@@ -179,10 +183,15 @@ async def theme_refinement(
         processor=processor,
         concurrency=concurrency,
         discussion_topic=discussion_topic,
+        batch_size=batch_size,
     )
 
     # flatten
-    refined_themes = refined_themes[0]["refined_themes"]
+    refined_themes = [theme for batch in refined_themes for theme in batch["refined_themes"]]
+
+    # create topic_id for each refined theme (batches each have A-K)
+    for i, theme in enumerate(refined_themes):
+        theme["topic_id"] = f"t{i}"
 
     logger.info(f"Refined {len(condensed_themes)} themes into {len(refined_themes)} final themes")
     return refined_themes

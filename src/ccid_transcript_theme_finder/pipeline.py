@@ -7,13 +7,9 @@ theme finding process.
 import logging
 from typing import Any
 
-from .models import (
-    TextSection,
-    TranscriptSession,
-)
+from .nodes.deliberation_processor import DeliberationProcessor
 from .nodes.gemini_processor import GeminiProcessor
 from .nodes.sentence_mapper import SentenceMapper
-from .nodes.session_processor import DeliberationProcessor
 from .nodes.themes import theme_condensation, theme_generation, theme_refinement
 
 logger = logging.getLogger(__name__)
@@ -22,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def analyse_deliberation_session(
     data_path: str,
     model_name: str = "gemini-2.5-flash",  # "gemini-2.5-flash-lite",
-    condensation_batch_size: int = 10,
+    batch_size: int = 10,
     concurrency: int = 4,
     max_condensation_iterations: int = 4,
     remove_facilitator_content: bool = False,
@@ -42,9 +38,7 @@ async def analyse_deliberation_session(
         data_path: Path to folder containing JSON files with transcript data for deliberation sections
                    OR path to root folder containing date folders when using cross-session mode
         model_name: Gemini model to use (default: "gemini-2.5-flash-lite")
-        condensation_batch_size: Batch size for theme condensation (default: 10)
-        refinement_batch_size: Batch size for theme refinement (default: 20)
-        mapping_batch_size: Batch size for text section mapping (default: 10)
+        batch_size: Batch size for theme condensation, refinement and mapping (default: 10)
         concurrency: Number of concurrent API calls (default: 4)
         max_condensation_iterations: Maximum number of condensation iterations (default: 4)
         remove_facilitator_content: Whether to remove facilitator content (default: False)
@@ -67,26 +61,26 @@ async def analyse_deliberation_session(
 
     # init the gemini and session processor
     processor = GeminiProcessor(model_name=model_name)
-    session_processor = DeliberationProcessor(processor=processor if remove_facilitator_content else None)
+    deliberation_processor = DeliberationProcessor(processor=processor if remove_facilitator_content else None)
 
     # stage 1: process the session folder or specific section across sessions
     if target_section:
         logger.info(f"Stage 1: Processing {target_section} across sessions in root folder")
-        session, text_sections = await session_processor.process_specific_section_across_sessions(
+        corpus, text_sections = await deliberation_processor.process_specific_section_across_sessions(
             data_path, target_section
         )
     else:
         logger.info("Stage 1: Processing session folder from JSON files")
-        session, text_sections = await session_processor.process_session_folder(data_path)
+        corpus, text_sections = await deliberation_processor.process_session_folder(data_path)
 
-    logger.info(f"Created {len(text_sections)} text sections from session folder {session.session_id}")
+    logger.info(f"Created {len(text_sections)} text sections from session folder {corpus.session_id}")
 
     # stage 2: generate initial themes from text sections
     logger.info("Stage 2: Generating themes from text sections")
     initial_themes = await theme_generation(
         text_sections=text_sections,
         processor=processor,
-        discussion_topic=session.system_info,
+        discussion_topic=corpus.system_info,
         concurrency=concurrency,
     )
 
@@ -97,8 +91,8 @@ async def analyse_deliberation_session(
     condensed_themes = await theme_condensation(
         themes=initial_themes,
         processor=processor,
-        discussion_topic=session.system_info,
-        batch_size=condensation_batch_size,
+        discussion_topic=corpus.system_info,
+        batch_size=batch_size,
         concurrency=concurrency,
         max_condensation_iterations=max_condensation_iterations,
     )
@@ -110,7 +104,8 @@ async def analyse_deliberation_session(
     refined_themes = await theme_refinement(
         condensed_themes=condensed_themes,
         processor=processor,
-        discussion_topic=session.system_info,
+        discussion_topic=corpus.system_info,
+        batch_size=batch_size,
         concurrency=concurrency,
     )
 
@@ -126,25 +121,13 @@ async def analyse_deliberation_session(
         refined_themes=refined_themes,
     )
 
-    logger.info("Deliberation session analysis complete")
+    logger.info("Deliberation analysis complete")
 
     return {
-        "session": session,
+        "combined_transcript": corpus,
         "text_sections": text_sections,
         "initial_themes": initial_themes,
         "condensed_themes": condensed_themes,
         "refined_themes": refined_themes,
         "sentence_theme_mapping": sentence_mapping,
-    }
-
-
-def _create_empty_results(session: TranscriptSession, text_sections: list[TextSection]) -> dict[str, Any]:
-    """Create empty results structure when analysis fails."""
-    return {
-        "session": session,
-        "text_sections": text_sections,
-        "initial_themes": [],
-        "condensed_themes": [],
-        "refined_themes": [],
-        "sentence_theme_mapping": [],
     }

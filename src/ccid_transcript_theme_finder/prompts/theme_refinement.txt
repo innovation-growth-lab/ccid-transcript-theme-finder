@@ -10,7 +10,7 @@ You will produce a list of REFINED THEMES. Each theme should have five parts:
 1. A topic_id that is an uppercase letter (starting from 'A', for the 27th element use AA)
 2. A brief, clear topic_label (3-7 words)
 3. A more detailed topic_description (1-2 sentences)
-4. The source_session_count field reflecting the number of original sections that contributed to this theme
+4. The source_topic_count field reflecting the number of original sections that contributed to this theme
 5. The source_sentences list containing only the most relevant sentences that contributed to this theme (you may remove poorly relevant sentences)
 
 ## Guidelines

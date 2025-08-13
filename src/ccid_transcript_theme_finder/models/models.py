@@ -46,7 +46,7 @@ class CondensedTheme(BaseModel):
     topic_description: str = Field(
         ..., description="Concise description incorporating key insights from constituent topics"
     )
-    source_session_count: int = Field(..., ge=0, description="Sum of source_session_counts from combined topics")
+    source_topic_count: int = Field(..., ge=0, description="Sum of constituent topics")
     source_sentences: list[str] = Field(
         default_factory=list, description="List of all sentences that contributed to this theme"
     )
@@ -64,7 +64,7 @@ class RefinedTheme(BaseModel):
     topic_id: str = Field(..., description="Single uppercase letter ID (A-Z, then AA, AB, etc.)")
     topic_label: str = Field(..., description="Brief, clear topic label (3-7 words)")
     topic_description: str = Field(..., description="Detailed description (1-2 sentences)")
-    source_session_count: int = Field(..., ge=0, description="Count of source sessions combined")
+    source_topic_count: int = Field(..., ge=0, description="Count of constituent topics")
     source_sentences: list[str] = Field(
         default_factory=list, description="List of all sentences that contributed to this theme"
     )

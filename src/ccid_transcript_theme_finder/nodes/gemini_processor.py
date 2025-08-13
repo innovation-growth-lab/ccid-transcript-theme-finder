@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 from google import genai
 from google.genai.client import Client
 from pydantic import BaseModel

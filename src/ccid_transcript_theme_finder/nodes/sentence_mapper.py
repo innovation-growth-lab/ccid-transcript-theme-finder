@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Set
 
-from .session_processor import TextSection
+from ..models import TextSection
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,6 @@ class SentenceMapper:
 
     def collect_assigned_sentences(
         self,
-        initial_themes: list[dict[str, Any]],
-        condensed_themes: list[dict[str, Any]],
         refined_themes: list[dict[str, Any]],
     ) -> Set[str]:
         """Collect all sentences that were assigned to themes across all stages.
@@ -63,7 +61,7 @@ class SentenceMapper:
         assigned_sentences = set()
 
         # extract sentences from initial themes
-        for theme in initial_themes:
+        for theme in refined_themes:
             if "source_sentences" in theme:
                 assigned_sentences.update(theme["source_sentences"])
 
@@ -104,10 +102,10 @@ class SentenceMapper:
 
                 # add theme-specific fields
                 if theme_type == "condensed":
-                    clean_theme["source_session_count"] = theme.get("source_session_count", 0)
+                    clean_theme["source_topic_count"] = theme.get("source_topic_count", 0)
                 elif theme_type == "refined":
                     clean_theme["topic_id"] = theme.get("topic_id", "")
-                    clean_theme["source_session_count"] = theme.get("source_session_count", 0)
+                    clean_theme["source_topic_count"] = theme.get("source_topic_count", 0)
 
                 matching_themes.append(clean_theme)
 
@@ -189,7 +187,7 @@ class SentenceMapper:
         self.all_original_sentences = self.extract_sentences_from_text_sections(text_sections)
 
         # collect assigned sentences from all theme stages
-        self.assigned_sentences = self.collect_assigned_sentences(initial_themes, condensed_themes, refined_themes)
+        self.assigned_sentences = self.collect_assigned_sentences(refined_themes)
 
         # create mapping for each sentence
         sentence_mappings = []
