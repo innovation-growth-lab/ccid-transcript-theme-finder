@@ -71,7 +71,7 @@ async def analyse_deliberation_session(
 
     logger.info(f"Created {len(text_sections)} text sections from session folder {session.session_id}")
 
-    # stage 2: Generate initial themes from text sections
+    # stage 2: generate initial themes from text sections
     logger.info("Stage 2: Generating themes from text sections")
     initial_themes = await theme_generation(
         text_sections=text_sections,
@@ -82,7 +82,7 @@ async def analyse_deliberation_session(
 
     logger.info(f"Generated {len(initial_themes)} initial themes")
 
-    # stage 3: Iteratively condense themes
+    # stage 3: iteratively condense themes
     logger.info("Stage 3: Condensing themes iteratively")
     condensed_themes = await theme_condensation(
         themes=initial_themes,
@@ -95,7 +95,7 @@ async def analyse_deliberation_session(
 
     logger.info(f"Condensed to {len(condensed_themes)} themes")
 
-    # stage 4: Refine themes
+    # stage 4: refine themes
     logger.info("Stage 4: Refining themes")
     refined_themes = await theme_refinement(
         condensed_themes=condensed_themes,
@@ -106,7 +106,7 @@ async def analyse_deliberation_session(
 
     logger.info(f"Refined to {len(refined_themes)} final themes")
 
-    # stage 5: Create sentence-level theme mapping
+    # stage 5: create sentence-level theme mapping
     logger.info("Stage 5: Creating sentence-level theme mapping")
     sentence_mapper = SentenceMapper()
     sentence_mapping = sentence_mapper.create_sentence_theme_mapping(

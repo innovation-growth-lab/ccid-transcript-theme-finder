@@ -30,7 +30,7 @@ class SentenceMapper:
         sentences = set()
 
         # pattern to match sentences, keeping the punctuation at the end
-        sentence_pattern = re.compile(r'[^.!?]*[.!?]')
+        sentence_pattern = re.compile(r"[^.!?]*[.!?]")
 
         for section in text_sections:
             # find all sentences ending with ., !, or ?
