@@ -45,6 +45,8 @@ class SentenceMapper:
 
     def collect_assigned_sentences(
         self,
+        initial_themes: list[dict[str, Any]],
+        condensed_themes: list[dict[str, Any]],
         refined_themes: list[dict[str, Any]],
     ) -> Set[str]:
         """Collect all sentences that were assigned to themes across all stages.
@@ -61,6 +63,18 @@ class SentenceMapper:
         assigned_sentences = set()
 
         # extract sentences from initial themes
+        for theme in initial_themes:
+            if "themes" in theme:
+                for sub_theme in theme["themes"]:
+                    if "source_sentences" in sub_theme:
+                        assigned_sentences.update(sub_theme["source_sentences"])
+
+        # extract sentences from condensed themes
+        for theme in condensed_themes:
+            if "source_sentences" in theme:
+                assigned_sentences.update(theme["source_sentences"])
+
+        # extract sentences from refined themes
         for theme in refined_themes:
             if "source_sentences" in theme:
                 assigned_sentences.update(theme["source_sentences"])
@@ -187,7 +201,7 @@ class SentenceMapper:
         self.all_original_sentences = self.extract_sentences_from_text_sections(text_sections)
 
         # collect assigned sentences from all theme stages
-        self.assigned_sentences = self.collect_assigned_sentences(refined_themes)
+        self.assigned_sentences = self.collect_assigned_sentences(initial_themes, condensed_themes, refined_themes)
 
         # create mapping for each sentence
         sentence_mappings = []
