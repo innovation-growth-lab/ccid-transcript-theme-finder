@@ -24,6 +24,7 @@ async def analyse_deliberation_session(
     max_condensation_iterations: int = 2,
     remove_facilitator_content: bool = False,
     target_section: str | None = None,
+    remove_short_sentences: bool = False,
 ) -> dict[str, Any]:
     """Analyse a transcript session from a folder of JSON files to identify and map themes using Gemini API calls.
 
@@ -45,6 +46,7 @@ async def analyse_deliberation_session(
         remove_facilitator_content: Whether to remove facilitator content (default: False)
         target_section: Specific section to analyze across sessions (e.g., "groundwork-intro").
                        If provided, enables cross-session mode. If None, uses session mode.
+        remove_short_sentences: Whether to remove short sentences from the transcript (default: False)
 
     Returns:
         dict: Results from each pipeline stage, structured as:
@@ -69,11 +71,13 @@ async def analyse_deliberation_session(
     if target_section:
         logger.info(f"Stage 1: Processing {target_section} across sessions in root folder")
         corpus, text_sections = await deliberation_processor.process_specific_section_across_sessions(
-            data_path, target_section
+            data_path, target_section, remove_short_sentences=remove_short_sentences
         )
     else:
         logger.info("Stage 1: Processing session folder from JSON files")
-        corpus, text_sections = await deliberation_processor.process_session_folder(data_path)
+        corpus, text_sections = await deliberation_processor.process_session_folder(
+            data_path, remove_short_sentences=remove_short_sentences
+        )
 
     logger.info(f"Created {len(text_sections)} text sections from session folder {corpus.session_id}")
 

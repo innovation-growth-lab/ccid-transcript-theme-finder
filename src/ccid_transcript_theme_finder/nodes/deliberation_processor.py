@@ -221,8 +221,41 @@ class DeliberationProcessor:
         """
         self.processor = processor
 
+    def _remove_short_sentences(self, text_section: TextSection) -> TextSection:
+        """Remove sentences with 5 words or less from transcript content.
+
+        Args:
+            text_section: The TextSection object to process
+
+        Returns:
+            TextSection: TextSection with short sentences removed from content
+
+        """
+        import re
+
+        # split content into sentences (basic approach - can be improved)
+        sentences = re.split(r"[.!?]+", text_section.content)
+
+        # filter out sentences with 5 words or less
+        filtered_sentences = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence and len(sentence.split()) > 5:
+                filtered_sentences.append(sentence)
+
+        # rejoin sentences with periods
+        cleaned_content = ". ".join(filtered_sentences) + ("." if filtered_sentences else "")
+
+        # create new TextSection with cleaned content
+        return TextSection(
+            section_id=text_section.section_id,
+            content=cleaned_content,
+            session_id=text_section.session_id,
+            system_info=text_section.system_info,
+        )
+
     def _load_transcript_from_csv(self, csv_path: str | Path, session_id: str | None = None) -> TextSection:
-        """Load a transcript session from a CSV file.
+        """Load a transcript section from a CSV file.
 
         Args:
             csv_path: Path to the CSV file containing transcript data
@@ -271,7 +304,7 @@ class DeliberationProcessor:
     def _load_transcripts_from_folder(
         self, folder_path: str | Path, session_id: str | None = None
     ) -> List[TextSection]:
-        """Load multiple transcript sessions from a folder of CSV files.
+        """Load multiple transcript sections from a folder of CSV files.
 
         Args:
             folder_path: Path to the folder containing CSV files
@@ -432,13 +465,14 @@ class DeliberationProcessor:
         return text_sections
 
     async def process_session_folder(
-        self, folder_path: str | Path, session_id: str | None = None
+        self, folder_path: str | Path, session_id: str | None = None, remove_short_sentences: bool = False
     ) -> Tuple[TranscriptSession, List[TextSection]]:
         """Process a folder of transcript sessions from JSON files.
 
         Args:
             folder_path: Path to the folder containing JSON files
             session_id: Optional session id to use for the transcript session
+            remove_short_sentences: Whether to remove short sentences from the transcript
 
         Returns:
             combined_session: TranscriptSession
@@ -455,6 +489,10 @@ class DeliberationProcessor:
         # load all deliberation sections from the folder
         text_sections = self._load_transcripts_from_folder(folder_path, session_id=session_id)
 
+        if remove_short_sentences:
+            logger.info("Removing short sentences from all sections")
+            text_sections = [self._remove_short_sentences(section) for section in text_sections]
+
         # remove facilitator content if requested
         if self.processor:
             logger.info("Removing facilitator content from all sessions")
@@ -468,13 +506,14 @@ class DeliberationProcessor:
         return combined_session, text_sections
 
     async def process_specific_section_across_sessions(
-        self, date_folder_path: str | Path, target_section: str
+        self, date_folder_path: str | Path, target_section: str, remove_short_sentences: bool = False
     ) -> Tuple[TranscriptSession, List[TextSection]]:
         """Process a specific section across all deliberation sessions on a given date.
 
         Args:
             date_folder_path: Path to the date folder (e.g., "2025-06-05")
             target_section: The specific section to extract (e.g., "groundwork-intro")
+            remove_short_sentences: Whether to remove short sentences from the transcript
 
         Returns:
             combined_session: TranscriptSession representing all sessions
@@ -509,6 +548,10 @@ class DeliberationProcessor:
             # update the text sections with cleaned content
             for section, cleaned_session in zip(text_sections, cleaned_sessions, strict=True):
                 section.content = cleaned_session.content
+
+        if remove_short_sentences:
+            logger.info("Removing short sentences from all sections")
+            text_sections = [self._remove_short_sentences(section) for section in text_sections]
 
         # create a combined session for overall analysis
         combined_content = "\n\n".join([section.content for section in text_sections])
