@@ -16,9 +16,37 @@ python example/main_pipeline.py \
 
 import argparse
 import asyncio
+from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from ccid_transcript_theme_finder.pipeline import analyse_deliberation_session
+
+
+def extract_topic_labels(mapping: dict[str, Any]) -> dict[str, Any]:
+    """Extract topic labels from the nested topics structure."""
+    topics = mapping.get("topics", {})
+
+    # Extract single theme label for each level (take the first one if multiple exist)
+    initial_themes = topics.get("initial", [])
+    initial_label = initial_themes[0].get("topic_label", "") if initial_themes else ""
+
+    condensed_themes = topics.get("condensed", [])
+    condensed_label = condensed_themes[0].get("topic_label", "") if condensed_themes else ""
+
+    refined_themes = topics.get("refined", [])
+    refined_label = refined_themes[0].get("topic_label", "") if refined_themes else ""
+
+    return {
+        "sentence_id": mapping.get("sentence_id", ""),
+        "sentence": mapping.get("sentence", ""),
+        "section_id": mapping.get("section_id", ""),
+        "deliberation_phase": mapping.get("deliberation_phase", ""),
+        "initial_theme": initial_label,
+        "condensed_theme": condensed_label,
+        "refined_theme": refined_label,
+    }
 
 
 async def main(session_folder: str, target_section: str | None) -> dict[str, Any]:
@@ -39,6 +67,22 @@ async def main(session_folder: str, target_section: str | None) -> dict[str, Any
     print(f"Sentences with themes: {sentences_with_themes}")
     print(f"Sentences without themes: {sentences_without_themes}")
     print(f"Total sentences: {len(results['sentence_theme_mapping'])}")
+
+    # save outputs to CSV files
+    outputs_dir = Path("example/outputs")
+    outputs_dir.mkdir(exist_ok=True)
+
+    pd.DataFrame(results["initial_themes"]).to_csv(outputs_dir / "initial_themes.csv", index=False)
+    pd.DataFrame(results["condensed_themes"]).to_csv(outputs_dir / "condensed_themes.csv", index=False)
+    pd.DataFrame(results["refined_themes"]).to_csv(outputs_dir / "refined_themes.csv", index=False)
+
+    # process sentence mapping to extract topic labels
+    sentence_mappings = [extract_topic_labels(mapping) for mapping in results["sentence_theme_mapping"]]
+    pd.DataFrame(sentence_mappings).to_csv(outputs_dir / "sentence_mapping.csv", index=False)
+
+    pd.DataFrame(results["sentiment_analyses"]).to_csv(outputs_dir / "sentiment_analyses.csv", index=False)
+
+    print(f"\nOutputs saved to {outputs_dir}/")
 
     return results
 
