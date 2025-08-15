@@ -16,8 +16,7 @@ logs/
 *checkpoint*
 
 # raw data
-deliberation/
-sanity_checks/
+data/
 
 # example script
 example.py
