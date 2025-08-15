@@ -9,6 +9,7 @@ from .models import (
     ThemeGenerationResponse,
     ThemeRefinementResponse,
     TranscriptSession,
+    ThemeSentiment,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ThemeCondensationResponse",
     "ThemeRefinementResponse",
     "TextSectionMappingResponse",
+    "ThemeSentiment",
 ]

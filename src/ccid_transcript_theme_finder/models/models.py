@@ -102,3 +102,21 @@ class FacilitatorRemovalResponse(BaseModel):
     """Response from facilitator content removal."""
 
     cleaned_content: str = Field(..., description="Transcript content with facilitator content removed")
+
+
+class SentenceSentiment(BaseModel):
+    """Model for analysing sentiment and stance of a single sentence."""
+
+    sentence: str = Field(..., description="The sentence being considered")
+    position: str = Field(..., description="Position: 'agreement', 'disagreement', or 'unclear'")
+    stance: str = Field(..., description="Stance: 'positive', 'negative', or 'unclear'")
+
+
+class ThemeSentiment(BaseModel):
+    """Model for sentiment analysis of all sentences within a theme."""
+
+    topic_id: str = Field(..., description="The topic ID of the theme being considered")
+    topic_label: str = Field(..., description="The topic label of the theme")
+    sentence_sentiments: list[SentenceSentiment] = Field(
+        ..., description="Sentiment analysis for each sentence in the theme"
+    )

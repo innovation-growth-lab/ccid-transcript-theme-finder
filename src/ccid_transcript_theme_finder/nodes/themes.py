@@ -186,7 +186,7 @@ async def theme_refinement(
         batch_size=batch_size,
     )
 
-    # flatten
+    # flatten the refined themes list
     refined_themes = [theme for batch in refined_themes for theme in batch["refined_themes"]]
 
     # create topic_id for each refined theme (batches each have A-K)

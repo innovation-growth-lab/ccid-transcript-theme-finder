@@ -10,6 +10,7 @@ from typing import Any
 from .nodes.deliberation_processor import DeliberationProcessor
 from .nodes.gemini_processor import GeminiProcessor
 from .nodes.sentence_mapper import SentenceMapper
+from .nodes.sentiment import theme_sentiment_analysis
 from .nodes.themes import theme_condensation, theme_generation, theme_refinement
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ async def analyse_deliberation_session(
     model_name: str = "gemini-2.5-flash",  # "gemini-2.5-flash-lite",
     batch_size: int = 10,
     concurrency: int = 4,
-    max_condensation_iterations: int = 4,
+    max_condensation_iterations: int = 2,
     remove_facilitator_content: bool = False,
     target_section: str | None = None,
 ) -> dict[str, Any]:
@@ -54,6 +55,7 @@ async def analyse_deliberation_session(
                 "condensed_themes": list[dict],
                 "refined_themes": list[dict],
                 "sentence_theme_mapping": list[dict],
+                "sentiment_analyses": list[dict],
             }
 
     """
@@ -121,6 +123,16 @@ async def analyse_deliberation_session(
         refined_themes=refined_themes,
     )
 
+    # stage 6: analyse position and stance of sentences within each theme
+    logger.info("Stage 6: Analysing position and stance of sentences within themes")
+    sentiment_analyses = await theme_sentiment_analysis(
+        refined_themes=refined_themes,
+        processor=processor,
+        discussion_topic=corpus.system_info,
+        batch_size=batch_size,
+        concurrency=concurrency,
+    )
+
     logger.info("Deliberation analysis complete")
 
     return {
@@ -130,4 +142,5 @@ async def analyse_deliberation_session(
         "condensed_themes": condensed_themes,
         "refined_themes": refined_themes,
         "sentence_theme_mapping": sentence_mapping,
+        "sentiment_analyses": sentiment_analyses,
     }
