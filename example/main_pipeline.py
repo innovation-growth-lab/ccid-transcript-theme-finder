@@ -28,6 +28,16 @@ def extract_topic_labels(mapping: dict[str, Any]) -> dict[str, Any]:
     """Extract topic labels from the nested topics structure."""
     topics = mapping.get("topics", {})
 
+    # if topics is None, return empty themes
+    if topics is None:
+        return {
+            "sentence_id": mapping.get("sentence_id", ""),
+            "sentence": mapping.get("sentence", ""),
+            "initial_theme": None,
+            "condensed_theme": None,
+            "refined_theme": None,
+        }
+
     # Extract single theme label for each level (take the first one if multiple exist)
     initial_themes = topics.get("initial", [])
     initial_label = initial_themes[0].get("topic_label", "") if initial_themes else ""
@@ -41,8 +51,6 @@ def extract_topic_labels(mapping: dict[str, Any]) -> dict[str, Any]:
     return {
         "sentence_id": mapping.get("sentence_id", ""),
         "sentence": mapping.get("sentence", ""),
-        "section_id": mapping.get("section_id", ""),
-        "deliberation_phase": mapping.get("deliberation_phase", ""),
         "initial_theme": initial_label,
         "condensed_theme": condensed_label,
         "refined_theme": refined_label,
@@ -50,8 +58,21 @@ def extract_topic_labels(mapping: dict[str, Any]) -> dict[str, Any]:
 
 
 async def main(session_folder: str, target_section: str | None) -> dict[str, Any]:
-    """Main function to execute the pipeline."""
-    results = await analyse_deliberation_session(session_folder, target_section=target_section)
+    """Main function to execute the pipeline.
+
+    Args:
+        session_folder: Path to the session folder
+        target_section: Optional target section to process
+        remove_short_sentences: Whether to remove short sentences from the transcript
+
+    Returns:
+        results: dict[str, Any]
+
+    """
+    # run the async pipeline
+    results = await analyse_deliberation_session(
+        session_folder, target_section=target_section, remove_short_sentences=True
+    )
 
     print("Pipeline completed!")
     print(f"Processed {len(results['text_sections'])} text sections")
@@ -69,7 +90,7 @@ async def main(session_folder: str, target_section: str | None) -> dict[str, Any
     print(f"Total sentences: {len(results['sentence_theme_mapping'])}")
 
     # save outputs to CSV files
-    outputs_dir = Path("example/outputs")
+    outputs_dir = Path("example/outputs" + (f"/{target_section}" if target_section else ""))
     outputs_dir.mkdir(exist_ok=True)
 
     pd.DataFrame(results["initial_themes"]).to_csv(outputs_dir / "initial_themes.csv", index=False)
@@ -98,6 +119,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="(Optional) Specific section to analyze across sessions (e.g., 'groundwork-intro').",
+    )
+    parser.add_argument(
+        "--remove_short_sentences",
+        action="store_true",
+        default=True,
+        help="Whether to remove short sentences from the transcript (default: True)",
     )
     return parser.parse_args()
 
