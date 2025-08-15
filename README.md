@@ -6,6 +6,8 @@ A tool for analysing focus group transcripts to identify and map key themes from
 
 This tool processes transcript data from focus group sessions to extract meaningful themes and insights. It uses AI-powered analysis to identify distinct topics, viewpoints, and discussion points from participant conversations, providing a structured approach to understanding the range of perspectives shared during deliberation sessions.
 
+![diagram](https://igl-public.s3.eu-west-2.amazonaws.com/misc/basic_pipeline.svg)
+
 ## Functionality
 
 The tool performs a multi-stage analysis process:
