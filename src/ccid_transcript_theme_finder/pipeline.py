@@ -25,6 +25,7 @@ async def analyse_deliberation_session(
     remove_facilitator_content: bool = False,
     target_section: str | None = None,
     remove_short_sentences: bool = False,
+    context_file_path: str | None = None,
 ) -> dict[str, Any]:
     """Analyse a transcript session from a folder of JSON files to identify and map themes using Gemini API calls.
 
@@ -47,6 +48,7 @@ async def analyse_deliberation_session(
         target_section: Specific section to analyze across sessions (e.g., "groundwork-intro").
                        If provided, enables cross-session mode. If None, uses session mode.
         remove_short_sentences: Whether to remove short sentences from the transcript (default: False)
+        context_file_path: Optional path to Excel file with section-specific context for analysis
 
     Returns:
         dict: Results from each pipeline stage, structured as:
@@ -88,6 +90,7 @@ async def analyse_deliberation_session(
         processor=processor,
         discussion_topic=corpus.system_info,
         concurrency=concurrency,
+        context_file_path=context_file_path,
     )
 
     logger.info(f"Generated {len(initial_themes)} initial themes")
@@ -101,6 +104,7 @@ async def analyse_deliberation_session(
         batch_size=batch_size,
         concurrency=concurrency,
         max_condensation_iterations=max_condensation_iterations,
+        context_file_path=context_file_path,
     )
 
     logger.info(f"Condensed to {len(condensed_themes)} themes")
@@ -113,6 +117,7 @@ async def analyse_deliberation_session(
         discussion_topic=corpus.system_info,
         batch_size=batch_size,
         concurrency=concurrency,
+        context_file_path=context_file_path,
     )
 
     logger.info(f"Refined to {len(refined_themes)} final themes")

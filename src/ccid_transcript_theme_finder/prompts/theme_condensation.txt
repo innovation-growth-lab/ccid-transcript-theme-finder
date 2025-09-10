@@ -2,6 +2,11 @@ You are an AI analysis tool specialised in analysing deliberation discussions an
 
 Below is a list of themes extracted from different segments of a deliberation session about: {discussion_topic}
 
+CONTEXT FOR THIS SECTION:
+STIMULUS: {stimulus}
+CORE RESEARCH QUESTION: {core_question}
+FACILITATOR PROMPTS: {facilitator_prompts}
+
 Your task is to analyse these themes and produce a refined list that:
 1. Identifies and preserves core themes that appear frequently
 2. Combines redundant or very similar themes while maintaining nuanced differences

@@ -9,6 +9,7 @@ from ..models import (
     ThemeGenerationResponse,
     ThemeRefinementResponse,
 )
+from .context_loader import get_section_context, load_section_context
 from .deliberation_processor import TextSection
 from .gemini_processor import GeminiProcessor, process_items_with_gemini
 
@@ -89,6 +90,7 @@ async def theme_generation(
     processor: GeminiProcessor,
     discussion_topic: str,
     concurrency: int,
+    context_file_path: str | None = None,
 ) -> list[dict[str, Any]]:
     """Generate themes from text sections using native Gemini API with concurrent processing.
 
@@ -102,6 +104,7 @@ async def theme_generation(
         processor: GeminiProcessor to use
         discussion_topic: Topic of the discussion
         concurrency: Maximum number of concurrent API calls (semaphore limit)
+        context_file_path: Optional path to Excel file with section context
 
     Returns:
         list[dict[str, Any]]: List of generated themes
@@ -109,12 +112,23 @@ async def theme_generation(
     """
     logger.info(f"Generating themes from {len(text_sections)} text sections.")
 
+    # load section context if provided
+    context_dict = {}
+    if context_file_path:
+        context_dict = load_section_context(context_file_path)
+
     # format text sections as items for the prompt template
     items = []
     for section in text_sections:
+        # get context for this section
+        section_context = get_section_context(section.section_id, context_dict)
+
         items.append({
             "section_id": section.section_id,
             "content": section.content,
+            "stimulus": section_context.get("stimulus", ""),
+            "core_question": section_context.get("core_question", ""),
+            "facilitator_prompts": section_context.get("facilitator_prompts", ""),
         })
 
     # process text sections through Gemini with concurrent execution
@@ -149,6 +163,7 @@ async def theme_condensation(
     batch_size: int,
     concurrency: int,
     max_condensation_iterations: int = 4,
+    context_file_path: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Iteratively condense themes to remove redundancy.
 
@@ -162,12 +177,18 @@ async def theme_condensation(
         batch_size: Batch size for theme condensation
         concurrency: Number of concurrent API calls
         max_condensation_iterations: Maximum number of condensation iterations (default: 10)
+        context_file_path: Optional path to Excel file with section context
 
     Returns:
         list[dict[str, Any]]: List of condensed themes
 
     """
     logger.info(f"Starting iterative theme condensation with {len(themes)} themes")
+
+    # load section context if provided
+    context_dict = {}
+    if context_file_path:
+        context_dict = load_section_context(context_file_path)
 
     trace_data = [{"iteration": 0, "themes": themes}]
     current_themes = themes
@@ -185,10 +206,23 @@ async def theme_condensation(
         # shuffle themes for iteration to avoid order bias
         random.shuffle(current_themes)
 
-        # create a batch of themes
-        batched_themes = [
-            {"themes": current_themes[i : i + batch_size]} for i in range(0, initial_theme_count, batch_size)
-        ]
+        # create a batch of themes with context
+        batched_themes = []
+        for i in range(0, initial_theme_count, batch_size):
+            theme_batch = current_themes[i : i + batch_size]
+            # get context for this batch (use first theme's section_id as representative)
+            batch_context = {"stimulus": "", "core_question": "", "facilitator_prompts": ""}
+            if context_dict and theme_batch:
+                section_context = get_section_context(theme_batch[0].get("section_id", ""), context_dict)
+                batch_context = {
+                    "stimulus": section_context.get("stimulus", ""),
+                    "core_question": section_context.get("core_question", ""),
+                    "facilitator_prompts": section_context.get("facilitator_prompts", ""),
+                }
+            batched_themes.append({
+                "themes": theme_batch,
+                **batch_context
+            })
 
         logger.info(f"Condensation iteration {iteration}: processing {initial_theme_count} themes")
 
@@ -225,6 +259,7 @@ async def theme_refinement(
     discussion_topic: str,
     batch_size: int,
     concurrency: int,
+    context_file_path: str | None = None,
 ) -> list[dict[str, Any]]:
     """Refine and standardise condensed themes into final format.
 
@@ -234,14 +269,34 @@ async def theme_refinement(
         discussion_topic: Topic of the discussion
         batch_size: Batch size for theme refinement
         concurrency: Number of concurrent API calls
+        context_file_path: Optional path to Excel file with section context
 
     Returns:
         list[dict[str, Any]]: List of refined themes
 
     """
-    themes_to_refine = [
-        {"themes": condensed_themes[i : i + batch_size]} for i in range(0, len(condensed_themes), batch_size)
-    ]
+    # load section context if provided
+    context_dict = {}
+    if context_file_path:
+        context_dict = load_section_context(context_file_path)
+
+    # create batches of themes with context
+    themes_to_refine = []
+    for i in range(0, len(condensed_themes), batch_size):
+        theme_batch = condensed_themes[i : i + batch_size]
+        # get context for this batch (use first theme's section_id as representative)
+        batch_context = {"stimulus": "", "core_question": "", "facilitator_prompts": ""}
+        if context_dict and theme_batch:
+            section_context = get_section_context(theme_batch[0].get("section_id", ""), context_dict)
+            batch_context = {
+                "stimulus": section_context.get("stimulus", ""),
+                "core_question": section_context.get("core_question", ""),
+                "facilitator_prompts": section_context.get("facilitator_prompts", ""),
+            }
+        themes_to_refine.append({
+            "themes": theme_batch,
+            **batch_context
+        })
     logger.info(f"Refining {len(condensed_themes)} condensed themes")
 
     # process themes through refinement

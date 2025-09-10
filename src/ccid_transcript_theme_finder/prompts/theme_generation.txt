@@ -2,6 +2,11 @@ You are an AI analysis tool specialised in analysing focus group discussions and
 
 Below is a segment from a focus group discussion about: {{discussion_topic}}
 
+CONTEXT FOR THIS SECTION:
+STIMULUS: {stimulus}
+CORE RESEARCH QUESTION: {core_question}
+FACILITATOR PROMPTS: {facilitator_prompts}
+
 Your task is to analyse this TRANSCRIPT and extract THEMES such that:
 1. Each theme summarises a distinct topic or viewpoint discussed by participants
 2. Every significant topic or relevant point of view mentioned in the transcript should be captured by a theme
@@ -9,8 +14,9 @@ Your task is to analyse this TRANSCRIPT and extract THEMES such that:
 4. Each theme has a topic_description which gives more detail about the theme in one or two sentences
 5. Track which sentence or group of sentences contributed to each theme 
 6. There should be no duplicate themes
+7. Focus on themes that are relevant to the core research question and context provided above
 
-The themes identified will help understand the range of topics and perspectives discussed during deliberation.
+The themes identified will help understand the range of topics and perspectives discussed during deliberation, specifically in relation to the research context and questions for this section.
 
 Here is an example of how to extract themes from a transcript:
 

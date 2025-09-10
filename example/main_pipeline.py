@@ -57,13 +57,13 @@ def extract_topic_labels(mapping: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def main(session_folder: str, target_section: str | None) -> dict[str, Any]:
+async def main(session_folder: str, target_section: str | None, context_file_path: str | None = None) -> dict[str, Any]:
     """Main function to execute the pipeline.
 
     Args:
         session_folder: Path to the session folder
         target_section: Optional target section to process
-        remove_short_sentences: Whether to remove short sentences from the transcript
+        context_file_path: Optional path to Excel file with section context
 
     Returns:
         results: dict[str, Any]
@@ -71,7 +71,7 @@ async def main(session_folder: str, target_section: str | None) -> dict[str, Any
     """
     # run the async pipeline
     results = await analyse_deliberation_session(
-        session_folder, target_section=target_section, remove_short_sentences=True
+        session_folder, target_section=target_section, remove_short_sentences=True, context_file_path=context_file_path
     )
 
     print("Pipeline completed!")
@@ -127,9 +127,15 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Whether to remove short sentences from the transcript (default: True)",
     )
+    parser.add_argument(
+        "--context_file",
+        type=str,
+        default="data/context_for_qual_analysis.xlsx",
+        help="Path to Excel file with section-specific context for analysis",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    asyncio.run(main(args.data_path, args.target_section))
+    asyncio.run(main(args.data_path, args.target_section, args.context_file))
