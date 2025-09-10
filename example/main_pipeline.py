@@ -96,6 +96,7 @@ async def main(session_folder: str, target_section: str | None) -> dict[str, Any
     pd.DataFrame(results["initial_themes"]).to_csv(outputs_dir / "initial_themes.csv", index=False)
     pd.DataFrame(results["condensed_themes"]).to_csv(outputs_dir / "condensed_themes.csv", index=False)
     pd.DataFrame(results["refined_themes"]).to_csv(outputs_dir / "refined_themes.csv", index=False)
+    pd.DataFrame(results["theme_trace_data"]).to_csv(outputs_dir / "theme_trace_data.csv", index=False)
 
     # process sentence mapping to extract topic labels
     sentence_mappings = [extract_topic_labels(mapping) for mapping in results["sentence_theme_mapping"]]

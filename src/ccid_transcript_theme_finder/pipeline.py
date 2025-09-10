@@ -11,7 +11,7 @@ from .nodes.deliberation_processor import DeliberationProcessor
 from .nodes.gemini_processor import GeminiProcessor
 from .nodes.sentence_mapper import SentenceMapper
 from .nodes.sentiment import theme_sentiment_analysis
-from .nodes.themes import theme_condensation, theme_generation, theme_refinement
+from .nodes.themes import create_theme_trace_data, theme_condensation, theme_generation, theme_refinement
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def analyse_deliberation_session(
     data_path: str,
     model_name: str = "gemini-2.5-flash",  # "gemini-2.5-flash-lite",
-    batch_size: int = 10,
+    batch_size: int = 25,
     concurrency: int = 4,
     max_condensation_iterations: int = 2,
     remove_facilitator_content: bool = False,
@@ -94,7 +94,7 @@ async def analyse_deliberation_session(
 
     # stage 3: iteratively condense themes
     logger.info("Stage 3: Condensing themes iteratively")
-    condensed_themes = await theme_condensation(
+    condensed_themes, condensed_trace_data = await theme_condensation(
         themes=initial_themes,
         processor=processor,
         discussion_topic=corpus.system_info,
@@ -116,6 +116,9 @@ async def analyse_deliberation_session(
     )
 
     logger.info(f"Refined to {len(refined_themes)} final themes")
+
+    # create theme trace data
+    theme_trace_data = await create_theme_trace_data(initial_themes, condensed_trace_data, refined_themes)
 
     # stage 5: create sentence-level theme mapping
     logger.info("Stage 5: Creating sentence-level theme mapping")
@@ -147,4 +150,5 @@ async def analyse_deliberation_session(
         "refined_themes": refined_themes,
         "sentence_theme_mapping": sentence_mapping,
         "sentiment_analyses": sentiment_analyses,
+        "theme_trace_data": theme_trace_data,
     }

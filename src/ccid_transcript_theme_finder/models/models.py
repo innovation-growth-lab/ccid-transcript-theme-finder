@@ -1,8 +1,7 @@
 """Data models for focus group analysis - pure Pydantic (for now!)."""
 
-from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class TranscriptSession(BaseModel):
@@ -46,7 +45,9 @@ class CondensedTheme(BaseModel):
     topic_description: str = Field(
         ..., description="Concise description incorporating key insights from constituent topics"
     )
-    source_topic_count: int = Field(..., ge=0, description="Sum of constituent topics")
+    source_topic_list: list[str] = Field(
+        default_factory=list, description="List of topic_id values from original themes that were combined"
+    )
     source_sentences: list[str] = Field(
         default_factory=list, description="List of all sentences that contributed to this theme"
     )
@@ -61,21 +62,14 @@ class ThemeCondensationResponse(BaseModel):
 class RefinedTheme(BaseModel):
     """Model for a refined theme with standardized format."""
 
-    topic_id: str = Field(..., description="Single uppercase letter ID (A-Z, then AA, AB, etc.)")
     topic_label: str = Field(..., description="Brief, clear topic label (3-7 words)")
     topic_description: str = Field(..., description="Detailed description (1-2 sentences)")
-    source_topic_count: int = Field(..., ge=0, description="Count of constituent topics")
+    source_topic_list: list[str] = Field(
+        default_factory=list, description="List of topic_id values from original themes that contributed to this theme"
+    )
     source_sentences: list[str] = Field(
         default_factory=list, description="List of all sentences that contributed to this theme"
     )
-
-    @model_validator(mode="after")
-    def validate_topic_id_format(self) -> Self:
-        """Validate that topic_id follows the expected format."""
-        topic_id = self.topic_id.strip()
-        if not topic_id.isupper() or not topic_id.isalpha():
-            raise ValueError(f"topic_id must be uppercase letters only: {topic_id}")
-        return self
 
 
 class ThemeRefinementResponse(BaseModel):

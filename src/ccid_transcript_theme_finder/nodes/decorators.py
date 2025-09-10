@@ -13,7 +13,7 @@ T = TypeVar("T")
 def async_retry(
     max_retries: int = 5,
     base_delay: float = 1.0,
-    max_delay: float = 30.0,
+    max_delay: float = 60.0,
 ) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]]:
     """Decorator for async functions to add retry logic with exponential backoff.
 
