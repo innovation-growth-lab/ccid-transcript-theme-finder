@@ -15,75 +15,6 @@ from .gemini_processor import GeminiProcessor, process_items_with_gemini
 
 logger = logging.getLogger(__name__)
 
-# Note:
-# - The condensation inevitably puts a lot of topics in AI risks, bias, etc. which is natural given the topic.
-#     + CONSIDERATION: Should we discourage this?
-
-
-class ThemeTracer:
-    """Simple theme tracing to track evolution through pipeline stages."""
-
-    def __init__(self):
-        self.trace_data = []
-        self.theme_counter = 0
-
-    def add_initial_themes(self, themes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Add initial themes to trace and return them with trace IDs."""
-        traced_themes = []
-        for theme in themes:
-            trace_id = f"init_{self.theme_counter}"
-            theme["trace_id"] = trace_id
-            traced_themes.append(theme)
-            self.theme_counter += 1
-        return traced_themes
-
-    def add_condensed_themes(self, themes: list[dict[str, Any]], iteration: int) -> list[dict[str, Any]]:
-        """Add condensed themes to trace and return them with trace IDs."""
-        traced_themes = []
-        for theme in themes:
-            trace_id = f"cond_{iteration}_{self.theme_counter}"
-            theme["trace_id"] = trace_id
-            traced_themes.append(theme)
-            self.theme_counter += 1
-        return traced_themes
-
-    def add_refined_themes(self, themes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Add refined themes to trace and return them with trace IDs."""
-        traced_themes = []
-        for theme in themes:
-            trace_id = f"ref_{self.theme_counter}"
-            theme["trace_id"] = trace_id
-            traced_themes.append(theme)
-            self.theme_counter += 1
-        return traced_themes
-
-    def create_trace_csv_data(
-        self, initial_themes: list[dict], condensed_themes: list[dict], refined_themes: list[dict]
-    ) -> list[dict]:
-        """Create CSV data showing theme evolution."""
-        # Simple approach: create one row per initial theme showing its evolution
-        trace_rows = []
-        for i, initial_theme in enumerate(initial_themes):
-            row = {
-                "initial_theme": initial_theme.get("topic_label", ""),
-                "initial_description": initial_theme.get("topic_description", ""),
-                "initial_trace_id": initial_theme.get("trace_id", ""),
-                "refined_theme": "",
-                "refined_description": "",
-                "refined_topic_id": "",
-            }
-
-            # Find corresponding refined theme (simplified matching)
-            if i < len(refined_themes):
-                refined_theme = refined_themes[i]
-                row["refined_theme"] = refined_theme.get("topic_label", "")
-                row["refined_description"] = refined_theme.get("topic_description", "")
-                row["refined_topic_id"] = refined_theme.get("topic_id", "")
-
-            trace_rows.append(row)
-
-        return trace_rows
-
 
 async def theme_generation(
     text_sections: list[TextSection],
@@ -219,10 +150,7 @@ async def theme_condensation(
                     "core_question": section_context.get("core_question", ""),
                     "facilitator_prompts": section_context.get("facilitator_prompts", ""),
                 }
-            batched_themes.append({
-                "themes": theme_batch,
-                **batch_context
-            })
+            batched_themes.append({"themes": theme_batch, **batch_context})
 
         logger.info(f"Condensation iteration {iteration}: processing {initial_theme_count} themes")
 
@@ -293,10 +221,7 @@ async def theme_refinement(
                 "core_question": section_context.get("core_question", ""),
                 "facilitator_prompts": section_context.get("facilitator_prompts", ""),
             }
-        themes_to_refine.append({
-            "themes": theme_batch,
-            **batch_context
-        })
+        themes_to_refine.append({"themes": theme_batch, **batch_context})
     logger.info(f"Refining {len(condensed_themes)} condensed themes")
 
     # process themes through refinement
