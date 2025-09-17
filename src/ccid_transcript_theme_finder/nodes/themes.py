@@ -12,6 +12,7 @@ from ..models import (
 from .context_loader import get_section_context, load_section_context
 from .deliberation_processor import TextSection
 from .gemini_processor import GeminiProcessor, process_items_with_gemini
+from .tracer import ThemeTracer
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,8 @@ async def theme_condensation(
     concurrency: int,
     max_condensation_iterations: int = 4,
     context_file_path: str | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    tracer: ThemeTracer | None = None,
+) -> list[dict[str, Any]]:
     """Iteratively condense themes to remove redundancy.
 
     Continues until the model determines themes are semantically fundamentally different
@@ -109,6 +111,7 @@ async def theme_condensation(
         concurrency: Number of concurrent API calls
         max_condensation_iterations: Maximum number of condensation iterations (default: 10)
         context_file_path: Optional path to Excel file with section context
+        tracer: Optional ThemeTracer to record theme evolution
 
     Returns:
         list[dict[str, Any]]: List of condensed themes
@@ -121,9 +124,12 @@ async def theme_condensation(
     if context_file_path:
         context_dict = load_section_context(context_file_path)
 
-    trace_data = [{"iteration": 0, "themes": themes}]
     current_themes = themes
     iteration = 0
+
+    # record initial themes in tracer if provided
+    if tracer:
+        tracer.record_initial_themes(themes)
 
     while True:
         iteration += 1
@@ -166,7 +172,10 @@ async def theme_condensation(
 
         # update current themes with the condensed themes
         current_themes = [theme for batch in condensed_themes for theme in batch["condensed_themes"]]
-        trace_data.append({"iteration": iteration, "themes": current_themes})
+
+        # record iteration in tracer if provided
+        if tracer:
+            tracer.record_condensation_iteration(iteration, current_themes)
         # update the theme count
         final_theme_count = len(current_themes)
 
@@ -178,7 +187,7 @@ async def theme_condensation(
             break
 
     logger.info(f"Theme condensation complete: {len(themes)} → {len(current_themes)} themes")
-    return current_themes, trace_data
+    return current_themes
 
 
 async def theme_refinement(
@@ -188,6 +197,7 @@ async def theme_refinement(
     batch_size: int,
     concurrency: int,
     context_file_path: str | None = None,
+    tracer: ThemeTracer | None = None,
 ) -> list[dict[str, Any]]:
     """Refine and standardise condensed themes into final format.
 
@@ -198,6 +208,7 @@ async def theme_refinement(
         batch_size: Batch size for theme refinement
         concurrency: Number of concurrent API calls
         context_file_path: Optional path to Excel file with section context
+        tracer: Optional ThemeTracer to record theme evolution
 
     Returns:
         list[dict[str, Any]]: List of refined themes
@@ -254,79 +265,9 @@ async def theme_refinement(
         if "source_topic_list" not in theme:
             theme["source_topic_list"] = []
 
+    # record refined themes in tracer if provided
+    if tracer:
+        tracer.record_refined_themes(refined_themes)
+
     logger.info(f"Refined {len(condensed_themes)} themes into {len(refined_themes)} final themes")
     return refined_themes
-
-
-async def create_theme_trace_data(
-    initial_themes: list[dict[str, Any]],
-    condensed_trace_data: list[dict[str, Any]],
-    refined_themes: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Create theme trace data showing evolution from initial to refined themes.
-
-    Args:
-        initial_themes: List of initial themes
-        condensed_trace_data: List of trace data from condensation iterations
-        refined_themes: List of refined themes
-
-    Returns:
-        List of dictionaries with theme evolution data
-    """
-    trace_rows = []
-
-    # Create one row per granular topic ID, showing its evolution through all iterations
-    for initial_theme in initial_themes:
-        # Get the granular topic ID from source_topic_list
-        source_topic_list = initial_theme.get("source_topic_list", [])
-        if not source_topic_list:
-            continue
-
-        granular_topic_id = source_topic_list[0]  # Should be the only one for initial themes
-
-        row = {
-            "granular_topic_id": granular_topic_id,
-            "initial_theme": initial_theme.get("topic_label", ""),
-            "initial_description": initial_theme.get("topic_description", ""),
-            "source_sentences": initial_theme.get("source_sentences", []),
-        }
-
-        # Add columns for each condensation iteration
-        for trace_entry in condensed_trace_data:
-            iteration = trace_entry.get("iteration", 0)
-            themes = trace_entry.get("themes", [])
-
-            # Find which theme in this iteration contains this granular topic ID
-            iteration_theme = ""
-            iteration_description = ""
-            for theme in themes:
-                theme_source_list = theme.get("source_topic_list", [])
-                if granular_topic_id in theme_source_list:
-                    iteration_theme = theme.get("topic_label", "")
-                    iteration_description = theme.get("topic_description", "")
-                    break
-
-            row[f"iteration_{iteration}_theme"] = iteration_theme
-            row[f"iteration_{iteration}_description"] = iteration_description
-
-        # Find which refined theme contains this granular topic ID
-        refined_theme = ""
-        refined_description = ""
-        refined_topic_id = ""
-        for theme in refined_themes:
-            theme_source_list = theme.get("source_topic_list", [])
-            if granular_topic_id in theme_source_list:
-                refined_theme = theme.get("topic_label", "")
-                refined_description = theme.get("topic_description", "")
-                refined_topic_id = theme.get("topic_id", "")
-                refined_sentences = theme.get("source_sentences", [])
-                break
-
-        row["refined_theme"] = refined_theme
-        row["refined_description"] = refined_description
-        row["refined_topic_id"] = refined_topic_id
-        row["refined_sentences"] = refined_sentences
-
-        trace_rows.append(row)
-
-    return trace_rows
