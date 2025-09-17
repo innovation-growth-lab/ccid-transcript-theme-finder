@@ -98,8 +98,8 @@ async def analyse_deliberation_session(
     # create theme tracer for tracking evolution
     tracer = ThemeTracer()
 
-    # stage 3: iteratively condense themes
-    logger.info("Stage 3: Condensing themes iteratively")
+    # stage 3: condense themes using bootstrap sampling
+    logger.info("Stage 3: Condensing themes using bootstrap sampling")
     condensed_themes = await theme_condensation(
         themes=initial_themes,
         processor=processor,
@@ -109,6 +109,7 @@ async def analyse_deliberation_session(
         max_condensation_iterations=max_condensation_iterations,
         context_file_path=context_file_path,
         tracer=tracer,
+        n_bootstrap_samples=10,  # Number of bootstrap samples for robust clustering
     )
 
     logger.info(f"Condensed to {len(condensed_themes)} themes")

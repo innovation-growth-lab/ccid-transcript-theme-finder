@@ -1,14 +1,13 @@
 """Theme generation functions."""
 
 import logging
-import random
 from typing import Any
 
 from ..models import (
-    ThemeCondensationResponse,
     ThemeGenerationResponse,
     ThemeRefinementResponse,
 )
+from .bootstrap_condensation import BootstrapCondenser
 from .context_loader import get_section_context, load_section_context
 from .deliberation_processor import TextSection
 from .gemini_processor import GeminiProcessor, process_items_with_gemini
@@ -100,11 +99,12 @@ async def theme_condensation(
     max_condensation_iterations: int = 4,
     context_file_path: str | None = None,
     tracer: ThemeTracer | None = None,
+    n_bootstrap_samples: int = 10,
 ) -> list[dict[str, Any]]:
-    """Iteratively condense themes to remove redundancy.
+    """Condense themes using bootstrap sampling and network clustering.
 
-    Continues until the model determines themes are semantically fundamentally different
-    and no further combinations are possible.
+    Uses multiple bootstrap samples with different shuffles to build a co-occurrence
+    network, then applies Louvain clustering for robust theme condensation.
 
     Args:
         themes: List of themes to condense
@@ -112,85 +112,40 @@ async def theme_condensation(
         discussion_topic: Topic of the discussion
         batch_size: Batch size for theme condensation
         concurrency: Number of concurrent API calls
-        max_condensation_iterations: Maximum number of condensation iterations (default: 10)
+        max_condensation_iterations: Maximum number of condensation iterations (unused in bootstrap mode)
         context_file_path: Optional path to Excel file with section context
         tracer: Optional ThemeTracer to record theme evolution
+        n_bootstrap_samples: Number of bootstrap samples to generate
 
     Returns:
         list[dict[str, Any]]: List of condensed themes
 
     """
-    logger.info(f"Starting iterative theme condensation with {len(themes)} themes")
-
-    # load section context if provided
-    context_dict = {}
-    if context_file_path:
-        context_dict = load_section_context(context_file_path)
-
-    current_themes = themes
-    iteration = 0
+    logger.info(f"Starting bootstrap theme condensation with {len(themes)} themes")
 
     # record initial themes in tracer if provided
     if tracer:
         tracer.record_initial_themes(themes)
 
-    while True:
-        iteration += 1
-        initial_theme_count = len(current_themes)
+    # Create bootstrap condenser
+    condenser = BootstrapCondenser(
+        processor=processor,
+        discussion_topic=discussion_topic,
+        batch_size=batch_size,
+        concurrency=concurrency,
+        n_bootstrap_samples=n_bootstrap_samples,
+        context_file_path=context_file_path,
+    )
 
-        # Check if we've reached the maximum iteration count
-        if iteration > max_condensation_iterations:
-            logger.warning(f"Reached maximum iteration count ({max_condensation_iterations}) - stopping condensation")
-            break
+    # Perform bootstrap condensation
+    condensed_themes = await condenser.condense_themes(themes)
 
-        # shuffle themes for iteration to avoid order bias
-        random.shuffle(current_themes)
+    # record condensed themes in tracer if provided
+    if tracer:
+        tracer.record_condensation_iteration(1, condensed_themes)
 
-        # create a batch of themes with context
-        batched_themes = []
-        for i in range(0, initial_theme_count, batch_size):
-            theme_batch = current_themes[i : i + batch_size]
-            # get context for this batch (use first theme's section_id as representative)
-            batch_context = {"stimulus": "", "core_question": "", "facilitator_prompts": ""}
-            if context_dict and theme_batch:
-                section_context = get_section_context(theme_batch[0].get("section_id", ""), context_dict)
-                batch_context = {
-                    "stimulus": section_context.get("stimulus", ""),
-                    "core_question": section_context.get("core_question", ""),
-                    "facilitator_prompts": section_context.get("facilitator_prompts", ""),
-                }
-            batched_themes.append({"themes": theme_batch, **batch_context})
-
-        logger.info(f"Condensation iteration {iteration}: processing {initial_theme_count} themes")
-
-        # process themes through condensation
-        condensed_themes = await process_items_with_gemini(
-            items=batched_themes,
-            prompt_template_name="theme_condensation",
-            response_model=ThemeCondensationResponse,
-            processor=processor,
-            concurrency=concurrency,
-            discussion_topic=discussion_topic,
-        )
-
-        # update current themes with the condensed themes
-        current_themes = [theme for batch in condensed_themes for theme in batch["condensed_themes"]]
-
-        # record iteration in tracer if provided
-        if tracer:
-            tracer.record_condensation_iteration(iteration, current_themes)
-        # update the theme count
-        final_theme_count = len(current_themes)
-
-        logger.info(f"Iteration {iteration} complete: {initial_theme_count} → {final_theme_count} themes")
-
-        # check if the model determined no more combinations are possible
-        if final_theme_count >= initial_theme_count:
-            logger.info("Model determined themes are semantically fundamentally different - stopping condensation")
-            break
-
-    logger.info(f"Theme condensation complete: {len(themes)} → {len(current_themes)} themes")
-    return current_themes
+    logger.info(f"Bootstrap theme condensation complete: {len(themes)} → {len(condensed_themes)} themes")
+    return condensed_themes
 
 
 async def theme_refinement(
