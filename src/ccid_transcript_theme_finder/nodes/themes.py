@@ -76,11 +76,14 @@ async def theme_generation(
     # flatten the themes list and bring section_id into each theme
     flattened_themes = []  # DAVID: reduces chances of token overflow on the call above
     topic_id_counter = 0
-    for section_result in themes:
+
+    for i, section_result in enumerate(themes):
         section_id = section_result.get("section_id")
+        session_id = text_sections[i].session_id
         for theme in section_result.get("themes", []):
             theme_with_section = dict(theme)
             theme_with_section["section_id"] = section_id
+            theme_with_section["session_id"] = session_id
             theme_with_section["source_topic_list"] = [f"t{topic_id_counter}"]
             topic_id_counter += 1
             flattened_themes.append(theme_with_section)
