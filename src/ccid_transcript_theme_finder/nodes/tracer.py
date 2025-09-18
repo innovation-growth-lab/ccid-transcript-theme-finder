@@ -38,8 +38,6 @@ class ThemeTracer:
 
             row = {
                 "granular_topic_id": granular_topic_id,
-                "initial_theme": initial_theme.get("topic_label", ""),
-                "initial_description": initial_theme.get("topic_description", ""),
                 "initial_session_id": initial_theme.get("session_id", ""),
                 "source_sentences": initial_theme.get("source_sentences", []),
             }

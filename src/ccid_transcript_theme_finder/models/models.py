@@ -1,6 +1,5 @@
 """Data models for focus group analysis - pure Pydantic (for now!)."""
 
-
 from pydantic import BaseModel, Field
 
 
@@ -45,11 +44,11 @@ class CondensedTheme(BaseModel):
     topic_description: str = Field(
         ..., description="Concise description incorporating key insights from constituent topics"
     )
-    source_topic_list: list[str] = Field(
-        default_factory=list, description="List of topic_id values from original themes that were combined"
+    inner_topic_list: list[str] = Field(
+        default_factory=list, description="List of topic_id values from themes in current iteration that were combined"
     )
-    source_sentences: list[str] = Field(
-        default_factory=list, description="List of all sentences that contributed to this theme"
+    source_topic_list: list[str] = Field(
+        default_factory=list, description="List of topic_id values from original granular themes (t0, t1, t2, etc.) that were combined"
     )
 
 

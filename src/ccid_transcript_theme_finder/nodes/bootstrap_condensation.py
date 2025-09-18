@@ -36,6 +36,7 @@ class BootstrapCondenser:
             concurrency: Number of concurrent API calls
             n_bootstrap_samples: Number of bootstrap samples to generate
             context_file_path: Optional path to Excel file with section context
+
         """
         self.processor = processor
         self.discussion_topic = discussion_topic
@@ -57,16 +58,16 @@ class BootstrapCondenser:
 
         Returns:
             List of condensed themes
+
         """
         logger.info(f"Starting bootstrap condensation with {len(themes)} themes")
 
-        # Build co-occurrence network from bootstrap samples
+        # build co-occurrence network from bootstrap samples
         cooccurrence_network = await self._build_cooccurrence_network(themes)
 
-        # Apply Louvain clustering to get final condensed themes
+        # apply Louvain clustering to get condensed themes
         condensed_themes = self._cluster_themes(themes, cooccurrence_network)
 
-        logger.info(f"Bootstrap condensation complete: {len(themes)} → {len(condensed_themes)} themes")
         return condensed_themes
 
     async def _build_cooccurrence_network(self, themes: list[dict[str, Any]]) -> nx.Graph:
@@ -77,6 +78,7 @@ class BootstrapCondenser:
 
         Returns:
             NetworkX graph with edge weights representing co-occurrence probabilities
+
         """
         logger.info(f"Building co-occurrence network with {self.n_bootstrap_samples} bootstrap samples")
 
@@ -124,7 +126,7 @@ class BootstrapCondenser:
                 continue
 
         # convert counts to probabilities and build network
-        return self._build_network_from_cooccurrences(cooccurrence_counts, total_samples)
+        return self._build_network_from_cooccurrences(cooccurrence_counts, total_samples, themes)
 
     def _get_batch_context(self, theme_batch: list[dict[str, Any]]) -> dict[str, str]:
         """Get context for a batch of themes.
@@ -134,6 +136,7 @@ class BootstrapCondenser:
 
         Returns:
             Dictionary with context information
+
         """
         batch_context = {"stimulus": "", "core_question": "", "facilitator_prompts": ""}
         if self.context_dict and theme_batch:
@@ -153,42 +156,42 @@ class BootstrapCondenser:
         Args:
             condensed_responses: List of condensed theme responses
             cooccurrence_counts: Dictionary to store co-occurrence counts
+
         """
         for batch_response in condensed_responses:
             for condensed_theme in batch_response.get("condensed_themes", []):
-                source_topics = condensed_theme.get("source_topic_list", [])
+                inner_topics = condensed_theme.get("inner_topic_list", [])
 
-                # Count all pairs of topics that co-occur in the same condensed theme
-                for i, topic1 in enumerate(source_topics):
-                    for topic2 in source_topics[i + 1 :]:
-                        # Use sorted tuple to ensure consistent ordering
+                # count all pairs of topics that co-occur in the same condensed theme
+                for i, topic1 in enumerate(inner_topics):
+                    for topic2 in inner_topics[i + 1 :]:
+                        # use sorted tuple to ensure consistent ordering
                         pair = tuple(sorted([topic1, topic2]))
                         cooccurrence_counts[pair] += 1
 
     def _build_network_from_cooccurrences(
-        self, cooccurrence_counts: defaultdict[tuple[str, str], int], total_samples: int
+        self, cooccurrence_counts: defaultdict[tuple[str, str], int], total_samples: int, themes: list[dict[str, Any]]
     ) -> nx.Graph:
         """Build NetworkX graph from co-occurrence counts.
 
         Args:
             cooccurrence_counts: Dictionary of co-occurrence counts
             total_samples: Total number of bootstrap samples
+            themes: Original themes to ensure all nodes are included
 
         Returns:
             NetworkX graph with edge weights as probabilities
+
         """
         graph = nx.Graph()
 
-        # Add nodes (all unique topic IDs)
-        all_topics = set()
-        for topic1, topic2 in cooccurrence_counts.keys():
-            all_topics.add(topic1)
-            all_topics.add(topic2)
+        # add all theme nodes (including isolated ones)
+        for theme in themes:
+            topic_id = theme.get("topic_id")
+            if topic_id:
+                graph.add_node(topic_id)
 
-        for topic in all_topics:
-            graph.add_node(topic)
-
-        # Add edges with weights as probabilities
+        # add edges with weights as probabilities (likelihood of co-occurrence)
         for (topic1, topic2), count in cooccurrence_counts.items():
             probability = count / total_samples
             graph.add_edge(topic1, topic2, weight=probability)
@@ -205,28 +208,26 @@ class BootstrapCondenser:
 
         Returns:
             List of condensed themes
+
         """
         logger.info("Applying Louvain clustering to co-occurrence network")
 
-        # Apply Louvain clustering
+        # apply Louvain clustering
         communities = list(community.louvain_communities(network, weight="weight"))
 
-        # Create theme mapping
-        topic_to_theme = {theme["source_topic_list"][0]: theme for theme in themes}
-
-        # Build condensed themes from communities
+        # build condensed themes from communities
         condensed_themes = []
         for community_idx, community_topics in enumerate(communities):
             if not community_topics:
                 continue
 
-            # Get themes in this community
-            community_themes = [topic_to_theme[topic] for topic in community_topics if topic in topic_to_theme]
+            # get themes in this community
+            community_themes = [theme for theme in themes if theme["topic_id"] in community_topics]
 
             if not community_themes:
                 continue
 
-            # Create condensed theme
+            # create condensed theme
             condensed_theme = self._create_condensed_theme(community_themes, community_idx)
             condensed_themes.append(condensed_theme)
 
@@ -241,8 +242,9 @@ class BootstrapCondenser:
 
         Returns:
             Condensed theme dictionary
+
         """
-        # Combine source topic lists
+        # combine source topic lists
         all_source_topics = []
         all_sentences = []
         all_section_ids = []
@@ -253,9 +255,10 @@ class BootstrapCondenser:
             if theme.get("section_id"):
                 all_section_ids.append(theme["section_id"])
 
-        # Create condensed theme
+        # create condensed theme
         condensed_theme = {
-            "topic_label": f"Condensed Theme {community_idx + 1}",
+            "topic_id": f"c{community_idx}",
+            "topic_label": self._generate_condensed_label(themes),
             "topic_description": self._generate_condensed_description(themes),
             "source_topic_list": all_source_topics,
             "source_sentences": all_sentences,
@@ -263,6 +266,19 @@ class BootstrapCondenser:
         }
 
         return condensed_theme
+
+    def _generate_condensed_label(self, themes: list[dict[str, Any]]) -> str:
+        """Generate a label for a condensed theme.
+
+        Args:
+            themes: List of themes to combine
+
+        Returns:
+            Combined label
+
+        """
+        labels = [theme.get("topic_label", "") for theme in themes if theme.get("topic_label")]
+        return " | ".join(labels)
 
     def _generate_condensed_description(self, themes: list[dict[str, Any]]) -> str:
         """Generate a description for a condensed theme.
@@ -272,10 +288,11 @@ class BootstrapCondenser:
 
         Returns:
             Combined description
+
         """
         descriptions = [theme.get("topic_description", "") for theme in themes if theme.get("topic_description")]
         if not descriptions:
             return "Combined theme from multiple sources"
 
-        # Simple combination - in practice, you might want to use LLM for this too
-        return " | ".join(descriptions[:3])  # Limit to first 3 descriptions
+        # simple combination - in practice, you might want to use LLM for this too
+        return " | ".join(descriptions)

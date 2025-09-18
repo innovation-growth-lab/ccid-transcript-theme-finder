@@ -22,6 +22,7 @@ async def analyse_deliberation_session(
     batch_size: int = 25,
     concurrency: int = 4,
     max_condensation_iterations: int = 2,
+    n_bootstrap_samples: int = 2,
     remove_facilitator_content: bool = False,
     target_section: str | None = None,
     remove_short_sentences: bool = False,
@@ -44,6 +45,7 @@ async def analyse_deliberation_session(
         batch_size: Batch size for theme condensation, refinement and mapping (default: 10)
         concurrency: Number of concurrent API calls (default: 4)
         max_condensation_iterations: Maximum number of condensation iterations (default: 4)
+        n_bootstrap_samples: Number of bootstrap samples for robust clustering (default: 2)
         remove_facilitator_content: Whether to remove facilitator content (default: False)
         target_section: Specific section to analyze across sessions (e.g., "groundwork-intro").
                        If provided, enables cross-session mode. If None, uses session mode.
@@ -65,9 +67,10 @@ async def analyse_deliberation_session(
     """
     logger.info("Starting focus group session analysis with native Gemini")
 
-    # init the gemini and session processor
+    # init the gemini and session processor, as well as the theme tracer
     processor = GeminiProcessor(model_name=model_name)
     deliberation_processor = DeliberationProcessor(processor=processor if remove_facilitator_content else None)
+    tracer = ThemeTracer()
 
     # stage 1: process the session folder or specific section across sessions
     if target_section:
@@ -91,12 +94,10 @@ async def analyse_deliberation_session(
         discussion_topic=corpus.system_info,
         concurrency=concurrency,
         context_file_path=context_file_path,
+        tracer=tracer,
     )
 
     logger.info(f"Generated {len(initial_themes)} initial themes")
-
-    # create theme tracer for tracking evolution
-    tracer = ThemeTracer()
 
     # stage 3: condense themes using bootstrap sampling
     logger.info("Stage 3: Condensing themes using bootstrap sampling")
@@ -109,7 +110,7 @@ async def analyse_deliberation_session(
         max_condensation_iterations=max_condensation_iterations,
         context_file_path=context_file_path,
         tracer=tracer,
-        n_bootstrap_samples=10,  # Number of bootstrap samples for robust clustering
+        n_bootstrap_samples=n_bootstrap_samples,
     )
 
     logger.info(f"Condensed to {len(condensed_themes)} themes")

@@ -11,11 +11,18 @@ FACILITATOR PROMPTS: {facilitator_prompts}
 You will receive a list of THEMES extracted from focus group transcript segments.
 
 ## Output
-You will produce a list of REFINED THEMES. Each theme should have four parts:
+You will produce a list of REFINED THEMES. The number of refined themes should be EXACTLY the same as the number of input themes. Each theme should have four parts:
 1. A brief, clear topic_label (3-7 words)
 2. A more detailed topic_description (1-2 sentences)
-3. The source_topic_list field containing the topic_id values from all original themes that contributed to this theme
+3. The source_topic_list field containing the topic_id values from all original granular themes (t0, t1, t2, etc.) that contributed to this theme
 4. The source_sentences list containing only the most relevant sentences that contributed to this theme (you may remove poorly relevant sentences)
+
+CRITICAL REQUIREMENTS:
+- Input has X themes → Output must have exactly X themes
+- Do NOT split, merge, or create new themes
+- Each input theme produces exactly one refined theme
+- Keep the same source_topic_list for each theme (do not modify it)
+- If you receive 3 themes, output exactly 3 themes
 
 ## Guidelines
 
@@ -34,9 +41,9 @@ You will produce a list of REFINED THEMES. Each theme should have four parts:
    - Avoid phrases like "many participants said" or "some mentioned"
 
 4. Distinctiveness:
-   - Ensure each theme represents a unique topic or aspect discussed
-   - Minimise overlap between themes
-   - If themes are closely related, find ways to differentiate them clearly
+   - Each theme should represent a unique topic or aspect discussed
+   - Maintain the existing theme boundaries (do not merge or split themes)
+   - If themes are closely related, find ways to differentiate them clearly in labels and descriptions
 
 5. Fluency and Readability:
    - Create concise, clear topic labels that summarise the main idea
@@ -51,14 +58,13 @@ You will produce a list of REFINED THEMES. Each theme should have four parts:
 
 ## Process
 
-1. Analyse the THEMES to identify key discussion topics and concepts
-2. Group closely related themes together if appropriate
-3. For each theme or group:
-   a. Distill the core concept or discussion point
-   b. Create a clear, concise topic_label
+1. For each input theme, create exactly one refined theme:
+   a. Distill the core concept or discussion point from the existing theme
+   b. Create a clear, concise topic_label (3-7 words)
    c. Write a detailed topic_description that provides context about what was discussed
-   d. Review and filter the source_sentences to keep only the most relevant ones
-4. Review the entire list to ensure distinctiveness and adjust as needed
+   d. Keep the same source_topic_list (do not modify it)
+   e. Review and filter the source_sentences to keep only the relevant ones
+2. Ensure the output has the same number of themes as the input
 
 DISCUSSION TOPIC:
 {discussion_topic}

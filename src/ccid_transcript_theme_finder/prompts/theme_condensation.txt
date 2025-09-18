@@ -9,7 +9,7 @@ FACILITATOR PROMPTS: {facilitator_prompts}
 
 Your task is to analyse these themes and produce a refined list that:
 1. Identifies and preserves core themes that appear frequently
-2. Combines redundant or very similar themes while maintaining nuanced differences
+2. Combines only themes that are truly redundant or extremely similar (be conservative about merging)
 3. Ensures the final list represents the full spectrum of viewpoints and topics discussed
 4. Tracks which original themes were combined into each new theme
 
@@ -18,19 +18,19 @@ Guidelines for Theme Analysis:
 - Consider the context of the discussion topic when determining theme relevance
 - Look for complementary perspectives that could enrich understanding of the same core concept
 - Consider the key ideas behind themes when merging, don't simply focus on the words used
-- Consolidation is encouraged, not mandated. If topics bring unique perspectives, preserve them.
-- When filtering sentences: keep only those that directly exemplify or contribute to the core concept of the combined theme
+- Be conservative about merging themes. Only combine themes that are truly redundant or extremely similar.
+- Preserve themes that bring unique perspectives, even if they seem related to others.
+- When in doubt, keep themes separate rather than merging them.
 - When combining themes:
   * List the topic_id values from all combined themes in source_topic_list
-  * Filter and select only the most relevant sentences from all combined themes
-  * Choose a representative label that captures the essence of the combined theme
+  * Choose a representative, precise label that captures the essence of the combined theme
   * Write a description that incorporates key insights from all constituent themes
 
 For each theme in your output:
 1. Choose a clear, representative label that captures the essence of the combined or preserved theme
 2. Write a concise description that incorporates key insights from all constituent themes (single sentence)
-3. Include the source_topic_list values from all merged themes in a flattened source_topic_list
-4. Include only the most relevant and representative source_sentences from merged themes (remove tangential or weakly related sentences)
+3. Include the topic_id values from all merged themes in a flattened inner_topic_list (these are the current iteration's topic IDs)
+4. Include the source_topic_list values from all merged themes' source topic lists in a flattened source_topic_list (these always trace back to original granular themes t0, t1, t2, etc.)
 
 DISCUSSION TOPIC:
 {discussion_topic}

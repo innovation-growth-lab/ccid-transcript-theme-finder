@@ -22,6 +22,7 @@ async def theme_generation(
     discussion_topic: str,
     concurrency: int,
     context_file_path: str | None = None,
+    tracer: ThemeTracer | None = None,
 ) -> list[dict[str, Any]]:
     """Generate themes from text sections using native Gemini API with concurrent processing.
 
@@ -36,6 +37,7 @@ async def theme_generation(
         discussion_topic: Topic of the discussion
         concurrency: Maximum number of concurrent API calls (semaphore limit)
         context_file_path: Optional path to Excel file with section context
+        tracer: Optional ThemeTracer to record theme evolution
 
     Returns:
         list[dict[str, Any]]: List of generated themes
@@ -83,9 +85,14 @@ async def theme_generation(
             theme_with_section = dict(theme)
             theme_with_section["section_id"] = section_id
             theme_with_section["session_id"] = session_id
-            theme_with_section["source_topic_list"] = [f"t{topic_id_counter}"]
+            theme_with_section["topic_id"] = f"t{topic_id_counter}"
+            theme_with_section["source_topic_list"] = [theme_with_section["topic_id"]]
             topic_id_counter += 1
             flattened_themes.append(theme_with_section)
+
+    # record initial themes in tracer if provided
+    if tracer:
+        tracer.record_initial_themes(flattened_themes)
 
     return flattened_themes
 
@@ -96,10 +103,10 @@ async def theme_condensation(
     discussion_topic: str,
     batch_size: int,
     concurrency: int,
-    max_condensation_iterations: int = 4,
+    max_condensation_iterations: int = 2,
     context_file_path: str | None = None,
     tracer: ThemeTracer | None = None,
-    n_bootstrap_samples: int = 10,
+    n_bootstrap_samples: int = 2,
 ) -> list[dict[str, Any]]:
     """Condense themes using bootstrap sampling and network clustering.
 
@@ -123,11 +130,7 @@ async def theme_condensation(
     """
     logger.info(f"Starting bootstrap theme condensation with {len(themes)} themes")
 
-    # record initial themes in tracer if provided
-    if tracer:
-        tracer.record_initial_themes(themes)
-
-    # Create bootstrap condenser
+    # create bootstrap condenser
     condenser = BootstrapCondenser(
         processor=processor,
         discussion_topic=discussion_topic,
@@ -137,15 +140,31 @@ async def theme_condensation(
         context_file_path=context_file_path,
     )
 
-    # Perform bootstrap condensation
-    condensed_themes = await condenser.condense_themes(themes)
+    current_themes = themes
+    iteration = 0
 
-    # record condensed themes in tracer if provided
-    if tracer:
-        tracer.record_condensation_iteration(1, condensed_themes)
+    while iteration < max_condensation_iterations:
+        iteration += 1
+        logger.info(f"Starting bootstrap condensation iteration {iteration}")
 
-    logger.info(f"Bootstrap theme condensation complete: {len(themes)} → {len(condensed_themes)} themes")
-    return condensed_themes
+        # bootstrap condensation
+        condensed_themes = await condenser.condense_themes(current_themes)
+
+        lcr = len(current_themes)
+        lcd = len(condensed_themes)
+        logger.info(f"Bootstrap condensation complete for iteration {iteration}: {lcr} → {lcd} themes")
+
+        # record condensed themes in tracer if provided
+        if tracer:
+            tracer.record_condensation_iteration(iteration, condensed_themes)
+
+        current_themes = condensed_themes
+
+    # drop topic_id values from condensed themes
+    for theme in current_themes:
+        theme.pop("topic_id", None)
+
+    return current_themes
 
 
 async def theme_refinement(
@@ -226,6 +245,4 @@ async def theme_refinement(
     # record refined themes in tracer if provided
     if tracer:
         tracer.record_refined_themes(refined_themes)
-
-    logger.info(f"Refined {len(condensed_themes)} themes into {len(refined_themes)} final themes")
     return refined_themes
