@@ -14,16 +14,21 @@ The tool performs a multi-stage analysis process:
 
 1. **Session processing**: Loads transcript data from CSV files and optionally removes facilitator content
 2. **Theme generation**: Extracts initial themes from transcript segments, identifying distinct topics and viewpoints
-3. **Theme condensation**: Combines similar or redundant themes while preserving nuanced differences
+3. **Bootstrap theme condensation**: Uses multiple bootstrap samples with different theme orderings to build a co-occurrence network, then applies Louvain clustering for robust theme combination
 4. **Theme refinement**: Polishes themes with clear labels, descriptions, and unique identifiers
 5. **Sentence mapping**: Links individual participant contributions to the identified themes
 6. **Sentiment analysis**: Analyses the position and stance of sentences within each theme
+7. **Theme tracing**: Tracks the evolution of themes from initial granular themes through condensation to final refined themes, including session count tracking
 
 ## Features
 
+- **Bootstrap condensation**: Robust theme clustering using multiple bootstrap samples and network analysis
 - **Concurrent processing**: Handles multiple API calls simultaneously for each stage
-- **Configurable parameters**: Adjustable batch sizes, concurrency limits, and iteration counts for theme condensation
+- **Configurable parameters**: Adjustable batch sizes, concurrency limits, and bootstrap sample counts
 - **Facilitator removal**: Optional filtering of moderator content to focus on participant insights
+- **Session tracking**: Counts unique sessions associated with each theme at different processing stages
+- **Theme evolution tracing**: Complete lineage tracking from granular themes through condensation to final refined themes
+- **Context integration**: Incorporates section-specific context (stimulus, core questions, facilitator prompts) into theme analysis
 - **Structured output**: Generates themes with topic IDs, labels, descriptions, and source sentence mappings
 - **CSV export**: Saves all analysis results to CSV files for further analysis
 
@@ -94,14 +99,32 @@ root_folder/
 **CSV file format:**
 Each CSV file should contain a "transcript" column with the conversation text. The tool automatically concatenates all transcript rows to create the full conversation content.
 
+## Bootstrap condensation approach
+
+The tool uses a bootstrap sampling approach for theme condensation that provides more robust and reliable results than alternative single-pass methods:
+
+1. **Multiple bootstrap samples**: Generates multiple (default: 5) different random orderings of themes
+2. **Co-occurrence network**: Builds a network where themes are nodes and edges represent how often they are grouped together
+3. **Louvain clustering**: Applies community detection algorithms to find optimal theme clusters based on co-occurrence probabilities
+
+## Session Tracking and Progress Monitoring
+
+The tool provides tracking of theme evolution and session coverage:
+
+- **Session Count Tracking**: Counts unique sessions associated with each theme at different processing stages
+- **Theme Lineage**: Complete tracking from initial granular themes through condensation to final refined themes
+- **Cross-Session Analysis**: When processing multiple sessions, tracks which themes appear across different sessions
+
 ## Output format
 
 The tool produces structured data including:
-- Initial themes extracted from transcript segments
-- Condensed themes after similarity analysis
-- Refined themes with clear labels and descriptions
-- Sentence-level mapping of participant contributions to themes
-- Sentiment analysis of position and stance within themes
+- **Initial themes**: Extracted from transcript segments with unique topic IDs
+- **Condensed themes**: Combined themes using bootstrap sampling and network clustering
+- **Refined themes**: Final themes with clear labels, descriptions, and unique identifiers (A, B, C, etc.)
+- **Theme trace data**: Complete evolution tracking showing how granular themes flow through condensation to final themes
+- **Session counts**: Number of unique sessions associated with each theme at different processing stages
+- **Sentence mapping**: Links individual participant contributions to themes with section and session IDs
+- **Sentiment analysis**: Position and stance analysis of sentences within each theme
 
 ## Example usage
 
