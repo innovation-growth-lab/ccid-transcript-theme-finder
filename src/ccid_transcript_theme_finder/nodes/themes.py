@@ -106,7 +106,7 @@ async def theme_condensation(
     max_condensation_iterations: int = 2,
     context_file_path: str | None = None,
     tracer: ThemeTracer | None = None,
-    n_bootstrap_samples: int = 2,
+    n_bootstrap_samples: int = 8,
 ) -> list[dict[str, Any]]:
     """Condense themes using bootstrap sampling and network clustering.
 
