@@ -33,15 +33,42 @@ The tool performs a multi-stage analysis process:
 
 ## Requirements
 
-- Python 3.8 or higher
+- Python 3.13.5
+- Conda package manager
 - Access to Google's Gemini API (Key stored as environment variable)
 - Transcript data folder with CSV formats
 
 ## Installation
 
-```bash
-pip install ccid-transcript-theme-finder
-```
+
+1. **Install Conda** (if not already installed):
+   - Download and install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+   - Follow the installation instructions for your operating system
+
+2. **Create a virtual environment with Python 3.13.5**:
+   ```bash
+   conda create -n ccid-theme-finder python=3.13.5
+   conda activate ccid-theme-finder
+   ```
+
+3. **Install the package in development mode**:
+   ```bash
+   # Navigate to the project directory
+   cd /path/to/ccid-transcript-theme-finder
+   
+   # Install the package in editable mode
+   pip install -e .
+   ```
+
+4. **Set up your Google Gemini API key**:
+   ```bash
+   # Set your API key as an environment variable
+   export GOOGLE_API_KEY="your-api-key-here"
+   
+   # Or add it to your shell profile (e.g., ~/.bashrc, ~/.zshrc)
+   echo 'export GOOGLE_API_KEY="your-api-key-here"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
 
 ## Usage
 
